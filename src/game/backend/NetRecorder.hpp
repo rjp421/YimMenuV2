@@ -44,6 +44,8 @@ namespace YimMenu
 			SessionHost,  // player id
 			FreemodeHost, // player id
 			ConnectedPlayers,
+			SimpleInterior, // freemode's simple interior index for us, -1 = none
+			Interior,       // the interior our ped is in, 0 = none
 		};
 
 		enum class BlockReason : uint32_t

@@ -259,7 +259,7 @@ namespace YimMenu
 			}
 			case Kind::State:
 			{
-				static constexpr const char* states[] = {"in session", "we are host", "in transition", "session host", "freemode script host", "connected players"};
+				static constexpr const char* states[] = {"in session", "we are host", "in transition", "session host", "freemode script host", "connected players", "simple interior", "interior"};
 				what = std::format("OUR state: {} = {}", r.m_A < std::size(states) ? states[r.m_A] : "unknown", static_cast<std::int32_t>(r.m_B));
 				break;
 			}

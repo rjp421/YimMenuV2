@@ -15,6 +15,7 @@
 #include "types/rage/atArray.hpp"
 #include "types/rage/tlsContext.hpp"
 #include "types/script/scrThread.hpp"
+#include "types/script/globals/GlobalPlayerBD.hpp"
 
 namespace YimMenu
 {
@@ -292,14 +293,19 @@ namespace YimMenu
 	static void CheckSessionState()
 	{
 		using State = NetRecorder::SessionState;
-		static std::array<int, 6> last{-2, -2, -2, -2, -2, -2};
-		std::array<int, 6> now{
+		auto self = Self::GetPlayer().GetId();
+		auto bd = GlobalPlayerBD::Get();
+		auto ped = Self::GetPed();
+		static std::array<int, 8> last{-2, -2, -2, -2, -2, -2, -2, -2};
+		std::array<int, 8> now{
 		    NETWORK::NETWORK_IS_IN_SESSION() ? 1 : 0,
 		    NETWORK::NETWORK_IS_HOST() ? 1 : 0,
 		    NETWORK::NETWORK_IS_IN_TRANSITION() ? 1 : 0,
 		    NETWORK::NETWORK_GET_HOST_PLAYER_INDEX(),
 		    NETWORK::NETWORK_GET_HOST_OF_SCRIPT("freemode", -1, 0),
 		    NETWORK::NETWORK_GET_NUM_CONNECTED_PLAYERS(),
+		    bd && self >= 0 && self < 32 ? static_cast<int>(bd->Entries[self].SimpleInteriorData.Index) : -1,
+		    ped ? INTERIOR::GET_INTERIOR_FROM_ENTITY(ped.GetHandle()) : 0,
 		};
 
 		if (int host = now[0] ? now[4] : -1; g_FreemodeHost.exchange(host) != host)
@@ -320,7 +326,6 @@ namespace YimMenu
 
 			// freemode's script host only moves on its own when the host leaves; menus can force it ("force script host"), which
 			// gives them the script host kick. Certain: it is how the session kick starts
-			auto self = Self::GetPlayer().GetId();
 			if (i == static_cast<std::size_t>(State::FreemodeHost) && last[i] == self && now[i] >= 0 && now[i] < 32 && now[i] != self && now[0] && !now[2])
 			{
 				Player taker(static_cast<std::uint8_t>(now[i]));
@@ -339,6 +344,9 @@ namespace YimMenu
 			case State::InTransition: LOGF(INFO, "Session state: in transition {} ({} players)", now[i], now[5]); break;
 			case State::SessionHost: LOGF(INFO, "Session state: session host {} -> {} ({} players)", PlayerName(last[i]), PlayerName(now[i]), now[5]); break;
 			case State::FreemodeHost: LOGF(INFO, "Session state: freemode script host {} -> {} ({} players)", PlayerName(last[i]), PlayerName(now[i]), now[5]); break;
+			// to find what moves us out of an interior: the netlog has these too, next to what other players sent
+			case State::SimpleInterior: LOGF(INFO, "Session state: simple interior {} -> {}", last[i], now[i]); break;
+			case State::Interior: LOGF(INFO, "Session state: interior {} -> {}", last[i], now[i]); break;
 			default: break;
 			}
 		}
