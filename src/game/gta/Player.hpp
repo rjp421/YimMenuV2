@@ -57,6 +57,8 @@ namespace YimMenu
 		int GetRank();
 		int GetRP();
 		int GetMoney();
+		int GetLanguage(); // -1 if unavailable
+		const char* GetLanguageName();
 
 		// wanted
 		int GetWantedLevel();

@@ -6,6 +6,7 @@
 #include "types/network/CNetGamePlayer.hpp"
 
 #include "types/script/globals/GPBD_FM.hpp"
+#include "types/script/globals/GPBD_FM_3.hpp"
 #include "core/backend/FiberPool.hpp"
 #include "core/backend/ScriptMgr.hpp"
 #include "game/backend/NodeHooks.hpp"
@@ -195,6 +196,42 @@ namespace YimMenu
 			return fm->Entries[GetId()].PlayerStats.Money;
 
 		return 0;
+	}
+
+	int Player::GetLanguage()
+	{
+		if (!IsValid())
+			return -1;
+
+		if (auto fm3 = GPBD_FM_3::Get())
+			return fm3->Entries[GetId()].BossGoon.Language;
+
+		return -1;
+	}
+
+	const char* Player::GetLanguageName()
+	{
+		static constexpr const char* languages[] = {
+		    "English",
+		    "French",
+		    "German",
+		    "Italian",
+		    "Spanish (Spain)",
+		    "Portuguese (Brazil)",
+		    "Polish",
+		    "Russian",
+		    "Korean",
+		    "Chinese (Traditional)",
+		    "Japanese",
+		    "Spanish (Mexico)",
+		    "Chinese (Simplified)",
+		};
+
+		int id = GetLanguage();
+		if (id < 0 || id >= static_cast<int>(std::size(languages)))
+			return "Unknown";
+
+		return languages[id];
 	}
 
 	int Player::GetWantedLevel()

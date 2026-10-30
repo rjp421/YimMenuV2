@@ -1024,6 +1024,10 @@ function Player:get_rp() end
 ---@return integer
 function Player:get_money() end
 ---@return integer
+function Player:get_language_id() end
+---@return string
+function Player:get_language_name() end
+---@return integer
 function Player:get_wanted_level() end
 ---@param level integer
 function Player:set_wanted_level(level) end
@@ -1279,6 +1283,12 @@ function network.force_script_host(script_hash) end
 function network.force_script_on_player(script_hash, bits) end
 ---@return boolean
 function network.is_session_started() end
+---@param player_id integer
+---@return integer
+function network.get_player_language_id(player_id) end
+---@param player_id integer
+---@return string
+function network.get_player_language_name(player_id) end
 ---Request a session transition from a script callback; returns no completion status.
 ---@param session_type session_types
 function network.join_session(session_type) end

@@ -5,6 +5,7 @@
 #include "game/backend/Self.hpp"
 #include "game/gta/Natives.hpp"
 #include "game/gta/Network.hpp"
+#include "game/gta/Player.hpp"
 #include "game/gta/Scripts.hpp"
 
 namespace YimMenu::Lua
@@ -105,6 +106,34 @@ namespace YimMenu::Lua
 			return 0;
 		}
 
+		// same as legacy YimMenu's, -1 if invalid
+		static int GetPlayerLanguageId(lua_State* state)
+		{
+			auto pid = luaL_checkinteger(state, 1);
+			if (pid < 0 || pid > 255)
+			{
+				lua_pushinteger(state, -1);
+				return 1;
+			}
+
+			lua_pushinteger(state, YimMenu::Player(static_cast<uint8_t>(pid)).GetLanguage());
+			return 1;
+		}
+
+		// same as legacy YimMenu's, "Unknown" if invalid
+		static int GetPlayerLanguageName(lua_State* state)
+		{
+			auto pid = luaL_checkinteger(state, 1);
+			if (pid < 0 || pid > 255)
+			{
+				lua_pushstring(state, "Unknown");
+				return 1;
+			}
+
+			lua_pushstring(state, YimMenu::Player(static_cast<uint8_t>(pid)).GetLanguageName());
+			return 1;
+		}
+
 		virtual void Register(lua_State* state) override
 		{
 			lua_newtable(state);
@@ -113,6 +142,8 @@ namespace YimMenu::Lua
 			SetFunction(state, ForceScriptOnPlayer, "force_script_on_player");
 			SetFunction(state, IsSessionStarted, "is_session_started");
 			SetFunction(state, JoinSession, "join_session");
+			SetFunction(state, GetPlayerLanguageId, "get_player_language_id");
+			SetFunction(state, GetPlayerLanguageName, "get_player_language_name");
 			lua_setglobal(state, "network");
 
 			static constexpr auto session_types = std::to_array<EnumEntry>({

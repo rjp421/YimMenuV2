@@ -733,6 +733,8 @@ A session player. Construct with `Player(id)`.
 | `player:get_rank() -> integer` | Level/rank. |
 | `player:get_rp() -> integer` | Reputation points. |
 | `player:get_money() -> integer` | Money. |
+| `player:get_language_id() -> integer` | Game language id (0-12), or -1 if unavailable. |
+| `player:get_language_name() -> string` | Game language name, or "Unknown". |
 | `player:get_wanted_level() -> integer` / `player:set_wanted_level(l)` | Wanted level. |
 | `player:get_max_armour() -> integer` | Max armour. |
 | `player:get_group() -> integer` | Group id. |
@@ -878,6 +880,8 @@ Native argument formats also accept booleans in integer slots, numbers in boolea
 | `network.force_script_host(script_hash)` | Forces the local player to host a script. |
 | `network.force_script_on_player(script_hash, bits)` | Forces a script to run on the players in `bits`. |
 | `network.is_session_started() -> boolean` | True if in a multiplayer session. |
+| `network.get_player_language_id(player_id) -> integer` | Game language id (0-12) of the player, or -1 if unavailable. |
+| `network.get_player_language_name(player_id) -> string` | Game language name of the player, or "Unknown". |
 | `network.join_session(session_type)` | Requests a session transition using a value from the global `session_types` table. Returns no value or completion status. |
 
 `trigger_script_event` prepends the event hash, local player ID, and target bitset to the formatted arguments. Received argument arrays include this prefix.

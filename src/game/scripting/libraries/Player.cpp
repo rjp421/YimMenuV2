@@ -124,6 +124,18 @@ namespace YimMenu::Lua
 			return 1;
 		}
 
+		static int GetLanguageId(lua_State* state)
+		{
+			lua_pushinteger(state, GetObject<YimMenu::Player>(state, 1).GetLanguage());
+			return 1;
+		}
+
+		static int GetLanguageName(lua_State* state)
+		{
+			lua_pushstring(state, GetObject<YimMenu::Player>(state, 1).GetLanguageName());
+			return 1;
+		}
+
 		static int GetWantedLevel(lua_State* state)
 		{
 			lua_pushinteger(state, GetObject<YimMenu::Player>(state, 1).GetWantedLevel());
@@ -244,6 +256,8 @@ namespace YimMenu::Lua
 					SetFunction(state, GetRank, "get_rank");
 					SetFunction(state, GetRP, "get_rp");
 					SetFunction(state, GetMoney, "get_money");
+					SetFunction(state, GetLanguageId, "get_language_id");
+					SetFunction(state, GetLanguageName, "get_language_name");
 					SetFunction(state, GetWantedLevel, "get_wanted_level");
 					SetFunction(state, SetWantedLevel, "set_wanted_level");
 					SetFunction(state, GetMaxArmour, "get_max_armour");
