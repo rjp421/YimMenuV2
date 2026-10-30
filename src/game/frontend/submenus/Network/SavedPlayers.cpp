@@ -2,6 +2,7 @@
 #include "core/backend/FiberPool.hpp"
 #include "core/frontend/widgets/imgui_colors.h"
 #include "core/frontend/Notifications.hpp"
+#include "game/backend/BlockJoinReasons.hpp"
 #include "game/backend/SavedPlayers.hpp"
 #include "game/gta/Network.hpp"
 #include "game/pointers/Pointers.hpp"
@@ -126,6 +127,33 @@ namespace YimMenu::Submenus
 			}
 
 			ImGui::Checkbox("Track Player", &g_SelectedPlayer->m_TrackPlayer);
+
+			// saved right away: the join request hook reads the saved flags
+			if (ImGui::Checkbox("Block Join", &g_SelectedPlayer->m_BlockJoin))
+				SavedPlayers::Save();
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Refuses their join requests when you are host, and host kicks them if they get in anyway");
+
+			ImGui::SetNextItemWidth(250.f);
+			if (ImGui::BeginCombo("Block Join Reason", GetBlockJoinReasonName(g_SelectedPlayer->m_BlockJoinReason)))
+			{
+				for (auto& [code, name] : g_BlockJoinReasons)
+				{
+					bool selected = g_SelectedPlayer->m_BlockJoinReason == code;
+					if (ImGui::Selectable(name, selected))
+					{
+						g_SelectedPlayer->m_BlockJoinReason = code;
+						FiberPool::Push([] {
+							SavedPlayers::Save();
+						});
+					}
+					if (selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("The message they see when refused");
 
 			if (g_SelectedPlayer->m_FetchedData)
 			{

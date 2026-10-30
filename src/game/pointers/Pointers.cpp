@@ -194,6 +194,17 @@ namespace YimMenu
 			ReceiveNetMessage = ptr.Add(0xD).Add(1).Rip().As<PVOID>();
 		});
 
+		constexpr auto handleJoinRequestPtrn = Pattern<"48 81 EC A8 03 00 00 4C 89 CF 4C 89 44 24 48 49 89 D6">("HandleJoinRequest");
+		scanner.Add(handleJoinRequestPtrn, [this](PointerCalculator ptr) {
+			HandleJoinRequest = ptr.Sub(0xC).As<PVOID>();
+		});
+
+		// the first field of a join response, checked by the joiner
+		constexpr auto getJoinResponseVersionPtrn = Pattern<"E8 ? ? ? ? 89 44 24 78 89 74 24 7C">("GetJoinResponseVersion");
+		scanner.Add(getJoinResponseVersionPtrn, [this](PointerCalculator ptr) {
+			GetJoinResponseVersion = ptr.Add(1).Rip().As<Functions::GetJoinResponseVersion>();
+		});
+
 		constexpr auto netEventMgrPtrn = Pattern<"4C 8B 05 ? ? ? ? 44 0F B7 CA">("NetEventMgr");
 		scanner.Add(netEventMgrPtrn, [this](PointerCalculator ptr) {
 			NetEventMgr = ptr.Add(3).Rip().As<rage::netEventMgr**>();

@@ -56,6 +56,7 @@ namespace YimMenu
 		using GetSyncTreeForType = rage::netSyncTree* (*)(void* netObjMgr, uint16_t type);
 		using MigrateObject = void (*)(CNetGamePlayer* player, rage::netObject* object, int type);
 		using QueuePacket = void (*)(rage::netConnectionManager* mgr, int msg_id, void* data, int size, int flags, std::uint16_t* out_seq_id);
+		using GetJoinResponseVersion = std::uint32_t (*)();
 		using GetNetObjectById = rage::netObject* (*)(uint16_t id);
 		using RequestControl = void (*)(rage::netObject* object);
 		using EventAck = bool (*)(uintptr_t data, CNetGamePlayer* target_player, uint32_t event_index, uint32_t event_handled_bitset);
@@ -110,6 +111,8 @@ namespace YimMenu
 		BytePatch SpectatePatch; // used to patch the code that prevents you from spawning network objects when spectating
 		BytePatch WorldModelSpawnBypass;
 		PVOID ReceiveNetMessage;
+		PVOID HandleJoinRequest;
+		Functions::GetJoinResponseVersion GetJoinResponseVersion;
 		rage::netEventMgr** NetEventMgr;
 		Functions::EventAck EventAck;
 		Functions::SendEventAck SendEventAck;

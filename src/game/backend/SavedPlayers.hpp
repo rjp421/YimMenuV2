@@ -13,6 +13,9 @@ namespace YimMenu
 		bool m_FetchingPlayerInfo;
 		std::filesystem::path m_PlayersFile;
 		std::chrono::system_clock::time_point m_LastPlayerInfoFetch;
+		// Block Join flags for the network thread, refreshed on every load and save
+		std::unordered_map<std::uint64_t, int> m_BlockedJoins;
+		std::mutex m_BlockedJoinsMutex;
 
 		SavedPlayers();
 		~SavedPlayers();
@@ -29,6 +32,8 @@ namespace YimMenu
 		void LoadImpl();
 		void SaveImpl();
 		void OnPlayerJoinImpl(Player player);
+		void RefreshBlockedJoins();
+		std::optional<int> GetBlockJoinReasonImpl(std::uint64_t rid);
 
 		static SavedPlayers& GetInstance()
 		{
@@ -87,6 +92,18 @@ namespace YimMenu
 		static void OnPlayerJoin(Player player)
 		{
 			GetInstance().OnPlayerJoinImpl(player);
+		}
+
+		// thread safe
+		static bool IsJoinBlocked(std::uint64_t rid)
+		{
+			return GetInstance().GetBlockJoinReasonImpl(rid).has_value();
+		}
+
+		// thread safe, nullopt when they aren't blocked
+		static std::optional<int> GetBlockJoinReason(std::uint64_t rid)
+		{
+			return GetInstance().GetBlockJoinReasonImpl(rid);
 		}
 	};
 }
