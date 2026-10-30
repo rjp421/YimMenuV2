@@ -2,6 +2,8 @@
 #include "core/backend/FiberPool.hpp"
 #include "core/frontend/widgets/imgui_colors.h"
 #include "core/frontend/Notifications.hpp"
+#include "game/backend/PlayerData.hpp"
+#include "game/backend/Players.hpp"
 #include "game/backend/SavedPlayers.hpp"
 #include "game/gta/Network.hpp"
 #include "game/pointers/Pointers.hpp"
@@ -126,6 +128,16 @@ namespace YimMenu::Submenus
 			}
 
 			ImGui::Checkbox("Track Player", &g_SelectedPlayer->m_TrackPlayer);
+
+			// also applies right away if they are in the session
+			if (ImGui::Checkbox("Is Modder", &g_SelectedPlayer->m_IsModder))
+			{
+				FiberPool::Push([rid = g_SelectedRid, modder = g_SelectedPlayer->m_IsModder] {
+					SavedPlayers::Save();
+					if (auto player = Players::GetByRID(rid); player.IsValid())
+						player.GetData().m_IsModder = modder;
+				});
+			}
 
 			if (g_SelectedPlayer->m_FetchedData)
 			{
