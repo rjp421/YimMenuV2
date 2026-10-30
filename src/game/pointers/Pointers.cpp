@@ -169,6 +169,12 @@ namespace YimMenu
 			GetNetObjectById = ptr.Add(4).Add(1).Rip().As<Functions::GetNetObjectById>();
 		});
 
+		// sends GIVE_PICKUP_REWARDS_EVENT (legacy's give_pickup_rewards)
+		constexpr auto givePickupRewardsPtrn = Pattern<"48 89 C1 66 BA 41 00 45 31 C0 41 B1 01 E8 ? ? ? ? 48 8D 05 ? ? ? ? 48 89 03 89 7B 30">("GivePickupRewards");
+		scanner.Add(givePickupRewardsPtrn, [this](PointerCalculator ptr) {
+			GivePickupRewards = ptr.Sub(0x6E).As<Functions::GivePickupRewards>();
+		});
+
 		constexpr auto requestControlPtrn = Pattern<"74 0A 48 89 F9 E8 ? ? ? ? 31 F6 89 F0 48 83 C4 20">("RequestControl");
 		scanner.Add(requestControlPtrn, [this](PointerCalculator ptr) {
 			RequestControl = ptr.Add(5).Add(1).Rip().As<Functions::RequestControl>();

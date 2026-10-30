@@ -281,4 +281,24 @@ struct SCRIPT_EVENT_FORCE_PLAYER_ON_MISSION_SERVER_ACK : public SCRIPT_EVENT
 };
 static_assert(sizeof(SCRIPT_EVENT_FORCE_PLAYER_ON_MISSION_SERVER_ACK) == 24 * 8);
 
+// clears the receiver's wanted level if ReplayProtectionValue matches their counter
+struct SCRIPT_EVENT_CLEAR_WANTED_LEVEL : public SCRIPT_EVENT
+{
+	REGISTER_SCRIPT_EVENT(SCRIPT_EVENT_CLEAR_WANTED_LEVEL, ClearWantedLevel);
+	SCR_INT ReplayProtectionValue; // the receiver's GPBD_FM_3 ScriptEventReplayProtectionCounter
+};
+static_assert(sizeof(SCRIPT_EVENT_CLEAR_WANTED_LEVEL) == 4 * 8);
+
+// same replay check; Enable starts off the radar at StartTime (network time)
+struct SCRIPT_EVENT_REMOTE_OFF_RADAR : public SCRIPT_EVENT
+{
+	REGISTER_SCRIPT_EVENT(SCRIPT_EVENT_REMOTE_OFF_RADAR, RemoteOffradar);
+	SCR_INT StartTime;
+	SCR_INT Duration; // only used when UseDuration is set
+	SCR_BOOL Enable;
+	SCR_BOOL UseDuration;
+	SCR_INT ReplayProtectionValue;
+};
+static_assert(sizeof(SCRIPT_EVENT_REMOTE_OFF_RADAR) == 8 * 8);
+
 #undef REGISTER_SCRIPT_EVENT
