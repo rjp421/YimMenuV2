@@ -21,6 +21,7 @@
 #include "game/backend/NativeHooks.hpp"
 #include "game/backend/Tunables.hpp"
 #include "game/backend/ScriptPointers.hpp"
+#include "game/frontend/ESP.hpp"
 #include "game/frontend/GUI.hpp"
 #include "game/pointers/Pointers.hpp"
 #include "game/features/vehicle/SavePersonalVehicle.hpp"
@@ -71,6 +72,8 @@ namespace YimMenu
 		ScriptMgr::AddScript(std::make_unique<Script>(&Tunables::RunScript));    // runs once
 		ScriptMgr::AddScript(std::make_unique<Script>(&AnticheatBypass::RunScript));
 		ScriptMgr::AddScript(std::make_unique<Script>(&Self::RunScript));
+		ScriptMgr::AddScript(std::make_unique<Script>(&Players::RunScript));
+		ScriptMgr::AddScript(std::make_unique<Script>(&ESP::RunScript));
 		ScriptMgr::AddScript(std::make_unique<Script>(&GUI::RunScript));
 		FiberPool::Init(16);
 		ScriptMgr::AddScript(std::make_unique<Script>(&LuaManager::RunScript));
