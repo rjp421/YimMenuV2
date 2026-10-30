@@ -18,6 +18,9 @@ namespace YimMenu
 		Hooking& operator=(Hooking&&) noexcept = delete;
 
 		static bool Init();
+
+		// the object manager is created after the menu is injected, so this is retried (from the net message hook) until it succeeds
+		static void InstallObjectMgrHooks();
 		static void Destroy();
 
 	private:

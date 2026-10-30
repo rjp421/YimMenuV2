@@ -5,8 +5,10 @@
 #include "Player/Troll.hpp"
 #include "Player/Kick.hpp"
 #include "core/frontend/widgets/imgui_colors.h"
+#include "game/backend/Detections.hpp"
 #include "game/backend/PlayerData.hpp"
 #include "game/backend/Players.hpp"
+#include "game/backend/SavedPlayers.hpp"
 #include "game/frontend/items/Items.hpp"
 
 namespace YimMenu::Submenus
@@ -70,15 +72,24 @@ namespace YimMenu::Submenus
 				}
 				ImGui::PopID();
 
-#if 0
-				if (player.IsModder() && ImGui::IsItemHovered())
+				// modders, and anyone with detections or notes (e.g. spectating) that didn't mark them
+				if (ImGui::IsItemHovered())
 				{
-					ImGui::BeginTooltip();
-					for (auto detection : player.GetData().m_Detections)
-						ImGui::BulletText("%s", g_PlayerDatabase->ConvertDetectionToDescription(detection).c_str());
-					ImGui::EndTooltip();
+					auto detections = Detections::Describe(player.GetRID());
+					if (detections.empty() && player.IsModder())
+						if (auto saved = SavedPlayers::GetPlayerData(player.GetRID()))
+							detections = saved->m_Detections;
+
+					if (player.IsModder() || !detections.empty())
+					{
+						ImGui::BeginTooltip();
+						if (detections.empty())
+							ImGui::TextUnformatted("Marked as a modder in Saved Players");
+						for (auto& detection : detections)
+							ImGui::BulletText("%s", detection.c_str());
+						ImGui::EndTooltip();
+					}
 				}
-#endif
 
 				auto tags = GetPlayerTags(player);
 

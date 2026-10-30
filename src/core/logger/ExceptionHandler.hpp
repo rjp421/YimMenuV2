@@ -14,4 +14,7 @@ namespace YimMenu
 	};
 
 	extern LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info);
+
+	// optional, called on every exception before it is logged (lets game code save extra state)
+	inline void (*g_OnException)() = nullptr;
 }

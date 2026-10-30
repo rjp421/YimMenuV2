@@ -22,6 +22,7 @@ namespace YimMenu::Scripts
 	extern bool SafeToModifyFreemodeBroadcastGlobals();                                       // TODO: find a better method for this that works for all scripts
 	extern std::optional<std::uint32_t> GetCodeLocationByPattern(rage::scrProgram* program, SimplePattern pattern);
 	extern void ForceScriptHost(rage::scrThread* thread); // likely unstable, beware!
+	extern void SendScriptHostAck(rage::scrThread* thread); // tells everyone that we are the script's host (the second half of ForceScriptHost)
 	extern std::optional<int> GetLauncherIndexFromScript(joaat_t hash);
 	extern void StartLauncherScript(joaat_t hash);
 	extern void ForceScriptOnPlayer(joaat_t hash, int bits);

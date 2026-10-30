@@ -33,8 +33,25 @@ namespace YimMenu
 	LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
 	{
 		const auto exception_code = exception_info->ExceptionRecord->ExceptionCode;
-		if (exception_code == EXCEPTION_BREAKPOINT || exception_code == DBG_PRINTEXCEPTION_C || exception_code == DBG_PRINTEXCEPTION_WIDE_C)
+		if (exception_code == DBG_PRINTEXCEPTION_C || exception_code == DBG_PRINTEXCEPTION_WIDE_C)
 			return EXCEPTION_CONTINUE_SEARCH;
+
+		// an unhandled breakpoint is one of the game's fatal error stops (e.g. a full pool), and the game closes right after:
+		// save the net recorder and the stack first, then let it crash as before
+		if (exception_code == EXCEPTION_BREAKPOINT)
+		{
+			if (g_OnException)
+				g_OnException();
+
+			trace.NewStackTrace(exception_info);
+			LOG(FATAL) << "The game stopped itself with a fatal error (breakpoint) and will close";
+			LOG(FATAL) << trace;
+			Logger::FlushQueue();
+			return EXCEPTION_CONTINUE_SEARCH;
+		}
+
+		if (g_OnException)
+			g_OnException();
 
 		static std::unordered_set<std::size_t> logged_exceptions;
 

@@ -1,5 +1,6 @@
 #include "Players.hpp"
 #include "core/scripting/LuaManager.hpp"
+#include "game/backend/NetRecorder.hpp"
 #include "game/backend/SavedPlayers.hpp"
 #include "game/pointers/Pointers.hpp"
 #include "types/network/CNetGamePlayer.hpp"
@@ -38,6 +39,7 @@ namespace YimMenu
 	void Players::OnPlayerJoinImpl(CNetGamePlayer* player)
 	{
 		auto new_player = Player(player);
+		NetRecorder::Record(new_player, NetRecorder::Kind::Join, static_cast<std::uint32_t>(new_player.GetRID()));
 
 		m_Players[player->m_PlayerIndex] = new_player;
 		m_PlayerDatas[player->m_PlayerIndex] = PlayerData();
@@ -52,6 +54,7 @@ namespace YimMenu
 
 	void Players::OnPlayerLeaveImpl(CNetGamePlayer* player)
 	{
+		NetRecorder::Record(Player(player), NetRecorder::Kind::Leave, 0);
 		if (m_SelectedPlayer == player)
 			m_SelectedPlayer = nullptr;
 		m_Players.erase(player->m_PlayerIndex);
@@ -93,6 +96,9 @@ namespace YimMenu
 	{
 		for (auto& [idx, player] : Players::GetPlayers())
 		{
+			// messages from peers without a player (still joining, connection level) carry an id that matches our own player
+			if (player.IsLocal())
+				continue;
 			if (player.GetHandle()->m_MessageId == id)
 			{
 				return player;

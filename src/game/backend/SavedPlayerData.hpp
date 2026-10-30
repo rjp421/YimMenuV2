@@ -48,13 +48,14 @@ namespace YimMenu
 		std::string m_Name = "";
 		bool m_IsModder = false;
 		bool m_TrackPlayer = false;
-		bool m_BlockJoin = false;  // refuse their join requests when we are host, host kick them if they get in
-		int m_BlockJoinReason = 1; // join response status they are refused with (BlockJoinReasons.hpp)
+		std::vector<std::string> m_Detections; // why the modder detection marked them
+		bool m_BlockJoin = false;              // refuse their join requests when we are host, host kick them if they get in
+		int m_BlockJoinReason = 1;             // join response status they are refused with (BlockJoinReasons.hpp)
 
 		// not stored
 		std::optional<FetchedPlayerData> m_FetchedData = std::nullopt;
 
 		// with defaults, so older files still load
-		NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(SavedPlayerData, m_Name, m_IsModder, m_TrackPlayer, m_BlockJoin, m_BlockJoinReason);
+		NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(SavedPlayerData, m_Name, m_IsModder, m_TrackPlayer, m_Detections, m_BlockJoin, m_BlockJoinReason);
 	};
 }
