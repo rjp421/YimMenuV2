@@ -18,7 +18,7 @@
 
 namespace YimMenu
 {
-	static BoolCommand _LogNetworkEvents{"lognetworkevents", "Log Network Events", "Writes all of the game's network events to the log, not only the ones that end a session", false};
+	static BoolCommand _LogNetworkEvents{"lognetworkevents", "Log Network Events", "Logs the first network event of each type and every session event, not only the ones that end a session. The netlogs always have all of them", false};
 
 	static const char* CurrentScriptName()
 	{
