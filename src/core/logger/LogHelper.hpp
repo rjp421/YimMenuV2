@@ -37,6 +37,7 @@ namespace YimMenu
 
 		void ToggleConsoleImpl(bool toggle);
 
+		void BackupLogFile();
 		void CloseOutputStreams();
 		void OpenOutputStreams();
 
@@ -51,5 +52,6 @@ namespace YimMenu
 		std::ofstream m_ConsoleOut;
 		std::filesystem::path m_File;
 		std::ofstream m_FileOut;
+		std::string m_BackupResult; // logged once the logger is running
 	};
 }

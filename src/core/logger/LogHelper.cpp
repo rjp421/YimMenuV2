@@ -65,6 +65,7 @@ namespace YimMenu
 			}
 		}
 
+		BackupLogFile();
 		OpenOutputStreams();
 
 		Logger::Init();
@@ -79,7 +80,37 @@ namespace YimMenu
 			m_FileOut.flush();
 		});
 
+		if (!m_BackupResult.empty())
+			LOG(INFO) << m_BackupResult;
+
 		return true;
+	}
+
+	// moves the log of the previous run to backup/<name>_<last write time>.log, since opening the log truncates it
+	void LogHelper::BackupLogFile()
+	{
+		std::error_code ec;
+		if (!std::filesystem::exists(m_File, ec) || std::filesystem::file_size(m_File, ec) == 0)
+			return;
+
+		auto writeTime = std::filesystem::last_write_time(m_File, ec);
+		if (ec)
+			return;
+		auto time = std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>(writeTime));
+		std::tm local{};
+		localtime_s(&local, &time);
+		char stamp[32];
+		std::strftime(stamp, sizeof(stamp), "%Y-%m-%d_%H-%M-%S", &local);
+
+		auto folder = m_File.parent_path() / "backup";
+		std::filesystem::create_directories(folder, ec);
+		auto target = folder / std::format("{}_{}{}", m_File.stem().string(), stamp, m_File.extension().string());
+
+		std::filesystem::rename(m_File, target, ec);
+		if (ec)
+			m_BackupResult = std::format("Could not back up the previous log to {}: {}", target.string(), ec.message());
+		else
+			m_BackupResult = std::format("Saved the previous log to {}", target.string());
 	}
 
 	void LogHelper::ToggleConsoleImpl(bool toggle)
