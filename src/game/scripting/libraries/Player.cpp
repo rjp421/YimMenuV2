@@ -1,8 +1,10 @@
+#include "core/commands/Commands.hpp"
 #include "core/scripting/LuaLibrary.hpp"
 #include "core/scripting/LuaScript.hpp"
 #include "core/scripting/LuaUtils.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/Self.hpp"
+#include "game/commands/PlayerCommand.hpp"
 #include "game/gta/Player.hpp"
 #include "types/rage/vector.hpp"
 
@@ -166,6 +168,22 @@ namespace YimMenu::Lua
 			return 0;
 		}
 
+		// player:kick(kick_types.host)
+		static int Kick(lua_State* state)
+		{
+			// indexed by the values of kick_types
+			static constexpr joaat_t kick_commands[] = {"hkick"_J, "shkick"_J, "endkick"_J, "nfkick"_J};
+
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			auto type = luaL_checkinteger(state, 2);
+			luaL_argcheck(state, type >= 0 && type < static_cast<lua_Integer>(std::size(kick_commands)), 2, "invalid kick type");
+
+			if (player.IsValid())
+				Commands::GetCommand<PlayerCommand>(kick_commands[type])->Call(player);
+
+			return 0;
+		}
+
 		static int SetPed(lua_State* state)
 		{
 			bool delete_old = lua_isnoneornil(state, 3) ? true : CheckBooleanSafe(state, 3);
@@ -251,6 +269,7 @@ namespace YimMenu::Lua
 					SetFunction(state, SetVisibleLocally, "set_visible_locally");
 					SetFunction(state, TeleportTo, "teleport_to");
 					SetFunction(state, SetFallDistanceOverride, "set_fall_distance_override");
+					SetFunction(state, Kick, "kick");
 					SetFunction(state, SetPed, "set_ped");
 				}
 				lua_setfield(state, -2, "__index");
@@ -270,6 +289,14 @@ namespace YimMenu::Lua
 			SetFunction(state, PlayersGetByMessageId, "get_by_message_id");
 			SetFunction(state, PlayersGetRandom, "get_random");
 			lua_setglobal(state, "players");
+
+			static constexpr auto kick_types = std::to_array<EnumEntry>({
+			    {"host", 0},
+			    {"script_host", 1},
+			    {"freemode_state", 2},
+			    {"null_function", 3},
+			});
+			RegisterEnum(state, "kick_types", kick_types.data(), kick_types.size());
 		}
 	};
 
