@@ -47,6 +47,7 @@ Most of this is ported from [legacy YimMenu](https://github.com/Mr-X-GTA/YimMenu
 ### What is checked
 
 - **Entity data from other players** (spawns and updates), before the game applies it: crash models, invalid task and index values, attachment loops, remote teleports, model mismatches, and vehicle data that can crash the game. Known crashes are always blocked. The rest are blocked while Block Bad Sync Data is on, and only logged when it is off. Players can't delete or take over our own ped or a vehicle we control, or delete another player's player object.
+- **Cages:** Block Cages (on by default) refuses the cage, container and tube objects that menus spawn around a player to trap them. Only in freemode, since stunt races build their tracks from the same tubes.
 - **Game events:** sound and synced scene spam, rope and object control data, traffic manipulation, weapons removed from or given to us, and control requests for the vehicle we are driving. When another player's game reports them to the anticheat, they are marked as a modder.
 - **Script events:** legacy's script event protections with the same defaults (bounties, forced teleports and missions, sending to cutscenes, sound spam, vehicle kicks and more), plus the crash and kick events, argument checks and rate limits.
 - **Network messages:** kicks, session messages, message floods and forced takeovers of freemode's script host. The takeover is refused, and Reclaim Script Host takes it back, since this is how script host kicks start.
