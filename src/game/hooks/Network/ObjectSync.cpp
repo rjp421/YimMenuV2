@@ -66,18 +66,35 @@ namespace YimMenu::Hooks
 				Detections::Add(sender, DetectionLevel::Strong, "taking over our player");
 			break;
 		case BlockReason::PlayerObjectNotOwnedBySender: Detections::Add(sender, DetectionLevel::Strong, "syncing another player's player object"); break;
-		// can happen in normal play when an object id is reused or a vehicle migrates while the message is on the way
-		case BlockReason::ObjectTypeMismatch: Detections::Add(sender, DetectionLevel::Weak, "object type mismatch"); break;
+		// no points: happens in normal play when a player leaves and another player's game reuses the id of an object
+		// that is still ours (the sender then syncs it several times a second for minutes)
+		case BlockReason::ObjectTypeMismatch: Detections::Add(sender, DetectionLevel::None, "object type mismatch"); break;
 		case BlockReason::OwnVehicle: Detections::Add(sender, DetectionLevel::Weak, "taking over our vehicle"); break;
 		default: break;
 		}
 	}
 
-	static void LogBlocked(const char* what, Player sender, std::uint16_t object_id, BlockReason reason)
+	// a type mismatch repeats with every sync of that object, so log each sender at most once per 10 seconds per object, with what we
+	// have under that id
+	static void LogTypeMismatch(Player sender, std::uint16_t object_id, rage::netObject* object, std::uint16_t object_type)
+	{
+		static std::array<std::pair<std::uint16_t, std::chrono::steady_clock::time_point>, 256> last_logs{};
+		auto& last_log = last_logs[static_cast<std::uint8_t>(sender.GetId())];
+		auto now = std::chrono::steady_clock::now();
+		if (last_log.first == object_id && now - last_log.second < std::chrono::seconds(10))
+			return;
+		last_log = {object_id, now};
+
+		Player owner = object->m_OwnerId >= 0 && object->m_OwnerId < 32 ? Player(static_cast<std::uint8_t>(object->m_OwnerId)) : Player();
+		LOGF(WARNING, "Blocked clone sync for object {} from {}: type {}, but ours is type {} owned by {}", object_id, GetSenderName(sender), object_type, static_cast<int>(object->m_ObjectType), owner.IsValid() ? owner.GetName() : std::format("nobody in the session ({})", object->m_OwnerId));
+	}
+
+	static void LogBlocked(const char* what, Player sender, std::uint16_t object_id, BlockReason reason, bool log = true)
 	{
 		NetRecorder::Record(sender, NetRecorder::Kind::Blocked, object_id, static_cast<std::uint32_t>(reason));
-		LOGF(WARNING, "Blocked clone {} for object {} from {} (reason {})", what, object_id, GetSenderName(sender), static_cast<std::uint32_t>(reason));
-		// the weak ones (see AddDetection)
+		if (log)
+			LOGF(WARNING, "Blocked clone {} for object {} from {} (reason {})", what, object_id, GetSenderName(sender), static_cast<std::uint32_t>(reason));
+		// the weak and no-points ones (see AddDetection)
 		bool serious = reason != BlockReason::ObjectTypeMismatch && reason != BlockReason::OwnVehicle;
 		NetRecorder::DumpBlocked("blocked clone message", sender, std::format("clone {} reason {}", what, static_cast<std::uint32_t>(reason)), serious);
 		AddDetection(what, sender, reason);
@@ -118,7 +135,8 @@ namespace YimMenu::Hooks
 
 		if (auto object = Pointers.GetNetObjectById(object_id); object && static_cast<std::uint16_t>(object->m_ObjectType) != object_type)
 		{
-			LogBlocked("sync", sender, object_id, BlockReason::ObjectTypeMismatch);
+			LogTypeMismatch(sender, object_id, object, object_type);
+			LogBlocked("sync", sender, object_id, BlockReason::ObjectTypeMismatch, false);
 			return ACK_FAIL;
 		}
 

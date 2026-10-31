@@ -82,6 +82,21 @@ namespace YimMenu
 	// clang-format on
 	static const std::unordered_set<std::uint32_t> g_CrashPeds = {"slod_human"_J, "slod_small_quadped"_J, "slod_large_quadped"_J};
 
+	static BoolCommand _BlockCages{"blockcages", "Block Cages", "Rejects the cage, container and tube objects that menus spawn around players to trap them", true};
+
+	// objects that menus spawn around a player to trap them; in the recorded traffic only attackers created them in freemode.
+	// Stunt races build their tracks from the tubes, so jobs are left alone
+	static const std::unordered_set<std::uint32_t> g_CageObjects = {
+	    "prop_gold_cont_01"_J,
+	    "prop_container_05a"_J,
+	    "stt_prop_stunt_tube_s"_J,
+	    "stt_prop_stunt_tube_xxs"_J,
+	    // names unknown, created together with the ones above
+	    0x2DB04373,
+	    0xA2023E64,
+	    0xAF9E03CD,
+	};
+
 	// the model natives only read the model info table, so they are safe to call from the network thread
 	static bool IsBadPedModel(std::uint32_t model)
 	{
@@ -397,6 +412,8 @@ namespace YimMenu
 			NetRecorder::Record(sender, NetRecorder::Kind::SyncNode, node_id, creation->m_Model);
 			if (IsBadObjectModel(creation->m_Model))
 				return "invalid object model";
+			if (g_CageObjects.contains(creation->m_Model) && !NETWORK::NETWORK_IS_ACTIVITY_SESSION())
+				return "cage object";
 			break;
 		}
 		case "CDoorCreationDataNode"_J:
@@ -692,7 +709,9 @@ namespace YimMenu
 			std::string_view why = reason;
 			bool crash = why == "mount flag" || why == "invalid object model" || why.starts_with("player model is not a ped")
 			    || why == "submarine car data on a vehicle that isn't one";
-			bool reject = block || crash;
+			// cages have their own toggle
+			bool cage = why == "cage object";
+			bool reject = cage ? _BlockCages.GetState() : block || crash;
 
 			NetRecorder::Record(sender, NetRecorder::Kind::Blocked, static_cast<std::uint16_t>(object->m_ObjectId), static_cast<std::uint32_t>(reject ? NetRecorder::BlockReason::BadSyncData : NetRecorder::BlockReason::BadSyncDataNotBlocked));
 
@@ -711,7 +730,7 @@ namespace YimMenu
 			if (last_log.first != reason || now - last_log.second > std::chrono::seconds(10))
 			{
 				last_log = {reason, now};
-				LOGF(WARNING, "{} {} from {} in {} (object {}, type {})", reject ? "Blocked" : "Would block (Block Bad Sync Data is off)", reason, sender.GetName(), node_id->name, object->m_ObjectId, static_cast<int>(object->m_ObjectType));
+				LOGF(WARNING, "{} {} from {} in {} (object {}, type {})", reject ? "Blocked" : cage ? "Would block (Block Cages is off)" : "Would block (Block Bad Sync Data is off)", reason, sender.GetName(), node_id->name, object->m_ObjectId, static_cast<int>(object->m_ObjectType));
 			}
 
 			if (reject)
@@ -721,6 +740,8 @@ namespace YimMenu
 				// the other checks only add weak points, none for those a normal player can hit
 				if (crash)
 					Detections::Add(sender, DetectionLevel::Certain, why);
+				else if (cage)
+					Detections::Add(sender, DetectionLevel::Strong, "spawning cage objects");
 				else if (!IsUnverifiedCheck(why))
 					Detections::Add(sender, DetectionLevel::Weak, std::format("bad sync data: {}", why));
 				return true;
