@@ -15,6 +15,7 @@
 #include "types/network/netObject.hpp"
 #include "types/rage/datBitBuffer.hpp"
 #include "types/script/globals/GlobalPlayerBD.hpp"
+#include "types/script/scrProgram.hpp"
 #include <set>
 
 namespace YimMenu::Hooks
@@ -141,6 +142,60 @@ namespace YimMenu::Hooks
 				auto blamed = players.find(static_cast<std::uint8_t>(owner_player));
 				LOGF(WARNING, "Explosion from {} is blamed on {} (owned explosion with another player's ped as owner, type {}; not blocked)", player.GetName(), blamed != players.end() ? blamed->second.GetName() : std::format("player {}", owner_player), static_cast<int>(event.m_ExplosionType));
 			}
+		}
+	}
+
+	// a script explosion carries the script and the program counter of the instruction that made it. If that instruction is
+	// a WAIT, or lies past the script's code, the script didn't make it: code injected into the script's thread did, which
+	// is how mod menus run their natives. Only scripts we have loaded can be checked. Log only, at most every 10 seconds per sender
+	static void CheckExplosionScript(CExplosionEvent& event, Player player)
+	{
+		if (!event.m_AddOwnedExplosion || !event.m_ScriptHash)
+			return;
+
+		rage::scrProgram* program = nullptr;
+		for (int i = 0; i < 176; i++)
+		{
+			auto candidate = Pointers.ScriptPrograms[i];
+			if (candidate && candidate->m_NameHash == event.m_ScriptHash && candidate->m_CodeSize && candidate->m_CodeBlocks)
+			{
+				program = candidate;
+				break;
+			}
+		}
+		if (!program)
+			return;
+
+		const char* reason = nullptr;
+		if (event.m_ProgramCounter >= program->m_CodeSize)
+		{
+			reason = "past the script's code";
+		}
+		else
+		{
+			// NATIVE opcode: 0x2C, then (args << 2 | returns), then the program's native index in big endian
+			auto pc = event.m_ProgramCounter;
+			auto code = [program](std::uint32_t index) {
+				auto address = program->GetCodeAddress(index);
+				return address ? *address : std::uint8_t(0);
+			};
+			if (code(pc) == 0x2C)
+			{
+				std::uint32_t native = code(pc + 2) << 8 | code(pc + 3);
+				if (native < program->m_NativeCount && program->m_NativeEntrypoints[native] == NativeInvoker::GetNativeHandler(NativeIndex::WAIT))
+					reason = "at a WAIT";
+			}
+		}
+		if (!reason)
+			return;
+
+		static std::array<std::chrono::steady_clock::time_point, 256> last_logs{};
+		auto& last = last_logs[static_cast<std::uint8_t>(player.GetId())];
+		auto now = std::chrono::steady_clock::now();
+		if (now - last > std::chrono::seconds(10))
+		{
+			last = now;
+			LOGF(WARNING, "Explosion from {} wasn't made by the game's scripts (type {}, script {} pc 0x{:X} is {}; log only)", player.GetName(), static_cast<int>(event.m_ExplosionType), program->m_Name ? program->m_Name : "?", event.m_ProgramCounter, reason);
 		}
 	}
 
@@ -330,6 +385,7 @@ namespace YimMenu::Hooks
 			CExplosionEvent event;
 			event.Deserialize(buffer);
 			RecordExplosion(event, player);
+			CheckExplosionScript(event, player);
 
 			if (ScanExplosionEvent(event, player))
 			{
