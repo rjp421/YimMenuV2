@@ -33,6 +33,7 @@ namespace YimMenu
 		if (m_SelfPed.IsValid())
 		{
 			m_Vehicle = m_SelfPed.GetVehicle();
+			m_IsDriver = m_Vehicle && VEHICLE::GET_PED_IN_VEHICLE_SEAT(m_Vehicle.GetHandle(), -1, false) == m_SelfPed.GetHandle();
 		}
 	}
 }

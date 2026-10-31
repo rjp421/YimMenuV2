@@ -11,6 +11,7 @@ namespace YimMenu
 		Ped m_SelfPed;
 		Player m_SelfPlayer;
 		Vehicle m_Vehicle;
+		bool m_IsDriver = false;
 
 	public:
 		static Ped GetPed()
@@ -26,6 +27,12 @@ namespace YimMenu
 		static Vehicle GetVehicle()
 		{
 			return GetInstance().m_Vehicle;
+		}
+
+		// whether we sit in the driver seat of GetVehicle(); cached on the game thread so network hooks can use it
+		static bool IsDriver()
+		{
+			return GetInstance().m_IsDriver;
 		}
 
 		static void RunScript()

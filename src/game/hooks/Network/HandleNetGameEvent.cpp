@@ -285,7 +285,19 @@ namespace YimMenu::Hooks
 		{
 		case rage::netGameEvent::Type::REQUEST_CONTROL_EVENT:
 		{
-			// TODO
+			// the game hands over the vehicle we are driving on request, and the new owner can then move it with us inside.
+			// Legacy refuses this in freemode unless the requester drives the vehicle; when we drive, nobody else does.
+			// Jobs are left alone, since their scripts may move control of our vehicle around
+			auto object_id = buffer.Read<std::uint16_t>(13);
+			auto vehicle = Self::GetVehicle();
+
+			if (vehicle && Self::IsDriver() && vehicle.GetNetworkObjectId() == object_id && !NETWORK::NETWORK_IS_ACTIVITY_SESSION())
+			{
+				LOGF(WARNING, "Blocked REQUEST_CONTROL_EVENT for our vehicle from {}", player.GetName());
+				Detections::Add(player, DetectionLevel::Weak, "requesting control of our vehicle");
+				return false;
+			}
+
 			break;
 		}
 		case rage::netGameEvent::Type::WEAPON_DAMAGE_EVENT:
