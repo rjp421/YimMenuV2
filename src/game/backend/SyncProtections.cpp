@@ -730,7 +730,8 @@ namespace YimMenu
 			if (last_log.first != reason || now - last_log.second > std::chrono::seconds(10))
 			{
 				last_log = {reason, now};
-				LOGF(WARNING, "{} {} from {} in {} (object {}, type {})", reject ? "Blocked" : cage ? "Would block (Block Cages is off)" : "Would block (Block Bad Sync Data is off)", reason, sender.GetName(), node_id->name, object->m_ObjectId, static_cast<int>(object->m_ObjectType));
+				const char* action = reject ? "Blocked" : (cage ? "Would block (Block Cages is off)" : "Would block (Block Bad Sync Data is off)");
+				LOGF(WARNING, "{} {} from {} in {} (object {}, type {})", action, reason, sender.GetName(), node_id->name, object->m_ObjectId, static_cast<int>(object->m_ObjectType));
 			}
 
 			if (reject)
