@@ -83,6 +83,7 @@ namespace YimMenu::Hooks
 		extern bool HandleScriptedGameEvent(Player player, CScriptedGameEvent& event);
 		extern uint32_t GetDLCHash(void* manager, uint32_t seed);
 		extern int GetPoolType();
+		extern void TriggerReportMyself(uint32_t type, uint32_t value);
 	}
 
 	namespace Window

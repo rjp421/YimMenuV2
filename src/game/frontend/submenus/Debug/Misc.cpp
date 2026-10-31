@@ -59,6 +59,7 @@ namespace YimMenu::Submenus
 		}));
 
 		misc->AddItem(std::make_shared<CommandItem>("dumpdatahash"_J));
+		misc->AddItem(std::make_shared<BoolCommandItem>("logselfreports"_J));
 
 		return misc;
 	}

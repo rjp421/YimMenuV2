@@ -158,6 +158,8 @@ namespace YimMenu
 		void** DLCManager;
 		PVOID GetDLCHash;
 		PVOID AssistedAimShouldReleaseEntity;
+		PVOID TriggerReportMyself;
+		std::uint32_t* ScriptGuardFlags;
 		Functions::AssistedAimFindNewTarget AssistedAimFindNewTarget;
 		PVOID Nullsub;
 		rage::Obf32** AnticheatInitializedHash;

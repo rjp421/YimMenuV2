@@ -37,14 +37,20 @@ namespace YimMenu
 		template<int index, bool fix_vectors>
 		constexpr void EndCall()
 		{
-			m_Handlers[index](&m_CallContext);
+			if (m_CheckScriptThread) [[unlikely]]
+				CallChecked(index, &m_CallContext);
+			else
+				m_Handlers[index](&m_CallContext);
 			if constexpr (fix_vectors)
 				m_CallContext.FixVectors();
 		}
 
 		constexpr void EndCall(int index, bool fix_vectors)
 		{
-			m_Handlers[index](&m_CallContext);
+			if (m_CheckScriptThread) [[unlikely]]
+				CallChecked(index, &m_CallContext);
+			else
+				m_Handlers[index](&m_CallContext);
 			if (fix_vectors)
 				m_CallContext.FixVectors();
 		}
@@ -63,6 +69,12 @@ namespace YimMenu
 
 	public:
 		static void CacheHandlers();
+
+		// Log Self Reports: logs the natives we call that set the game's script guard flag
+		// (the cause of the type 5 REPORT_MYSELF_EVENT)
+		static inline bool m_CheckScriptThread{false};
+		static inline std::atomic<std::uint32_t> m_GuardFlagSetCount{0};
+		static void CallChecked(int index, rage::scrNativeCallContext* ctx);
 
 		template<int index, typename Ret, bool fix_vectors, typename... Args>
 		static constexpr FORCEINLINE Ret Invoke(Args&&... args)
