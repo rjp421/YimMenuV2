@@ -94,6 +94,7 @@ namespace YimMenu::Hooks
 		extern bool CanApplyData(rage::netSyncTree* tree, rage::netObject* object);
 		extern void ApplyVehicleControlData(std::uint8_t* accessor, std::uint8_t* node);
 		extern void HandleCloneRemove(CNetworkObjectMgr* mgr, CNetGamePlayer* source, CNetGamePlayer* target, std::uint16_t object_id, int ownership_token);
+		extern void TriggerReportMyself(uint32_t type, uint32_t value);
 	}
 
 	namespace Window

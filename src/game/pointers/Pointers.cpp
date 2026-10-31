@@ -433,6 +433,18 @@ namespace YimMenu
 			AssistedAimShouldReleaseEntity = ptr.Sub(0xF).As<PVOID>();
 		});
 
+		// starts at the event id (0x52): the type/value stores after it are shared by other events' senders
+		constexpr auto triggerReportMyselfPtrn = Pattern<"66 BA 52 00 45 31 C0 45 31 C9 E8 ? ? ? ? 48 8D 05 ? ? ? ? 48 89 03 89 7B 30 89 73 34">("TriggerReportMyself");
+		scanner.Add(triggerReportMyselfPtrn, [this](PointerCalculator ptr) {
+			TriggerReportMyself = ptr.Sub(0x71).As<PVOID>();
+		});
+
+		// test byte ptr [flags], 1 right before the type 5 report: bit 0 = a guarded game function ran without a script thread
+		constexpr auto scriptGuardFlagsPtrn = Pattern<"F6 05 ? ? ? ? 01 74 ? B9 05 00 00 00 31 D2 E8">("ScriptGuardFlags");
+		scanner.Add(scriptGuardFlagsPtrn, [this](PointerCalculator ptr) {
+			ScriptGuardFlags = ptr.Add(2).Rip().Add(1).As<std::uint32_t*>(); // the instruction ends after its imm8
+		});
+
 		constexpr auto assistedAimFindNewTargetPtrn = Pattern<"0F 84 C9 00 00 00 48 89 CE 48 89 F9">("AssistedAimFindNewTarget");
 		scanner.Add(assistedAimFindNewTargetPtrn, [this](PointerCalculator ptr) {
 			AssistedAimFindNewTarget = ptr.Sub(0x33).As<Functions::AssistedAimFindNewTarget>();
