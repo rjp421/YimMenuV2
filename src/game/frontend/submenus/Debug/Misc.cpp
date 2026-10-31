@@ -59,6 +59,8 @@ namespace YimMenu::Submenus
 		}));
 
 		misc->AddItem(std::make_shared<CommandItem>("dumpdatahash"_J));
+		misc->AddItem(std::make_shared<CommandItem>("dumpgamemodule"_J));
+		misc->AddItem(std::make_shared<CommandItem>("dumpnativehandlers"_J));
 		misc->AddItem(std::make_shared<BoolCommandItem>("netrecorder"_J));
 		misc->AddItem(std::make_shared<CommandItem>("dumpnetrecorder"_J));
 		misc->AddItem(std::make_shared<BoolCommandItem>("lognetworkevents"_J));

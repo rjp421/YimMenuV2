@@ -1,7 +1,9 @@
 #include "Scripts.hpp"
 #include "core/backend/FiberPool.hpp"
 #include "core/backend/ScriptMgr.hpp"
+#include "core/filemgr/FileMgr.hpp"
 #include "core/frontend/Notifications.hpp"
+#include "core/memory/ModuleMgr.hpp"
 #include "game/gta/data/ScriptNames.hpp"
 #include "game/gta/data/StackSizes.hpp"
 #include "game/gta/Scripts.hpp"
@@ -125,6 +127,65 @@ namespace YimMenu::Submenus
 		ImGui::EndChild();
 	}
 
+	// code and string table are both stored in pages of 0x4000 bytes
+	static bool WritePages(const std::filesystem::path& path, const void* const* pages, std::uint32_t size)
+	{
+		std::ofstream file(path, std::ios::binary | std::ios::trunc);
+		if (!file)
+			return false;
+
+		for (std::uint32_t offset = 0; offset < size; offset += 0x4000)
+			file.write(static_cast<const char*>(pages[offset >> 14]), std::min<std::uint32_t>(0x4000, size - offset));
+		return true;
+	}
+
+	// writes <name>.code.bin and <name>.strings.bin to the dumps folder, for searching the bytecode offline
+	static void DumpBytecode(const char* name, rage::scrProgram* program)
+	{
+		auto folder = FileMgr::GetProjectFolder("./dumps").Path();
+		auto code = folder / std::format("{}.code.bin", name);
+		auto strings = folder / std::format("{}.strings.bin", name);
+
+		if (!WritePages(code, reinterpret_cast<const void* const*>(program->m_CodeBlocks), program->m_CodeSize)
+		    || !WritePages(strings, reinterpret_cast<const void* const*>(program->m_StringsData), program->m_StringsCount))
+		{
+			LOG(WARNING) << "Could not write the bytecode dump of " << name << " to " << folder.string();
+			return;
+		}
+
+		// handler RVA of each native the script uses (see Dump Native Handlers)
+		if (auto module = ModuleMgr.Get("GTA5_Enhanced.exe"_J))
+		{
+			std::ofstream natives(folder / std::format("{}.natives.txt", name), std::ios::trunc);
+			for (std::uint32_t i = 0; i < program->m_NativeCount; i++)
+				natives << std::format("{} {:X}\n", i, reinterpret_cast<std::uintptr_t>(program->m_NativeEntrypoints[i]) - module->Base());
+		}
+
+		LOG(INFO) << "Dumped " << name << " (code 0x" << std::hex << program->m_CodeSize << ", strings 0x" << program->m_StringsCount << ") to " << folder.string();
+	}
+
+	// dumps every loaded script program (not only running threads), for searching all scripts for event hashes
+	static void DumpAllScripts()
+	{
+		std::unordered_map<joaat_t, const char*> names;
+		for (auto name : scriptNames)
+			names.emplace(Joaat(name), name);
+
+		int count = 0;
+		for (int i = 0; i < 176; i++)
+		{
+			auto program = Pointers.ScriptPrograms[i];
+			if (!program || !program->IsValid() || program->m_RefCount == 0)
+				continue;
+
+			auto it = names.find(program->m_NameHash);
+			auto name = it != names.end() ? std::string(it->second) : std::format("{:08X}", program->m_NameHash);
+			DumpBytecode(name.c_str(), program);
+			count++;
+		}
+		LOGF(INFO, "Dumped {} loaded scripts", count);
+	}
+
 	std::shared_ptr<Category> BuildScriptsMenu()
 	{
 		auto menu = std::make_unique<Category>("Scripts");
@@ -136,6 +197,9 @@ namespace YimMenu::Submenus
 		threads->AddItem(std::make_unique<ImGuiItem>([] {
 			static rage::scrThread* curThread = nullptr;
 			static rage::scrProgram* curProgram = nullptr;
+
+			if (ImGui::Button("Dump All Loaded Scripts"))
+				DumpAllScripts();
 
 			if (!Pointers.ScriptThreads || Pointers.ScriptThreads->size() == 0)
 			{
@@ -206,6 +270,11 @@ namespace YimMenu::Submenus
 							}
 						}
 					});
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Dump Bytecode"))
+				{
+					DumpBytecode(curThread->m_ScriptName, curProgram);
 				}
 
 				if (ImGui::TreeNode("Info"))
