@@ -2,6 +2,7 @@
 
 class CNetworkPlayerMgr;
 class CNetGamePlayer;
+class CNetworkObjectMgr;
 class CProjectBaseSyncDataNode;
 class CScriptedGameEvent;
 class CBattlEyePlayerModifyInterface;
@@ -14,6 +15,7 @@ namespace rage
 	class netEvent;
 	class scrProgram;
 	class netObject;
+	class netSyncTree;
 	class datBitBuffer;
 	class JsonSerializer;
 	class rlMetric;
@@ -85,6 +87,13 @@ namespace YimMenu::Hooks
 		extern bool HandleScriptedGameEvent(Player player, CScriptedGameEvent& event);
 		extern uint32_t GetDLCHash(void* manager, uint32_t seed);
 		extern int GetPoolType();
+
+		// virtuals of CNetworkObjectMgr, hooked through the vtable entries (see ObjectSync.cpp)
+		extern void HandleCloneCreate(CNetworkObjectMgr* mgr, CNetGamePlayer* source, CNetGamePlayer* target, std::uint16_t object_type, std::uint16_t object_id, std::uint16_t object_flags, rage::datBitBuffer* buffer, std::uint32_t timestamp);
+		extern int HandleCloneSync(CNetworkObjectMgr* mgr, CNetGamePlayer* source, CNetGamePlayer* target, std::uint16_t object_type, std::uint16_t object_id, rage::datBitBuffer* buffer, std::uint16_t sequence, std::uint32_t timestamp);
+		extern bool CanApplyData(rage::netSyncTree* tree, rage::netObject* object);
+		extern void ApplyVehicleControlData(std::uint8_t* accessor, std::uint8_t* node);
+		extern void HandleCloneRemove(CNetworkObjectMgr* mgr, CNetGamePlayer* source, CNetGamePlayer* target, std::uint16_t object_id, int ownership_token);
 	}
 
 	namespace Window

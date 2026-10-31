@@ -49,7 +49,7 @@ enum class ScriptEventIndex
 	Spectate = 1840946429,                 // SPEC_TCK1
 	Teleport = -1321657966,                // Mission_Pass_Notify
 	TeleportToWarehouse = -1253241415,     // .f_4 == 50
-	// TransactionError         = -830063381,  // NETWORK_RECEIVE_PLAYER_JOBSHARE_CASH
+	TransactionError = -830063381,         // NETWORK_RECEIVE_PLAYER_JOBSHARE_CASH
 	VehicleKick = -503325966,       // PIM_RFMOC
 	MCTeleport = 1103127469,        // NETWORK::NETWORK_HASH_FROM_PLAYER_HANDLE(PLAYER::PLAYER_ID()) == (first one)
 	StartActivity = 1450115979,     // (Var0.f_2, -1); first match
@@ -79,6 +79,17 @@ enum class ScriptEventIndex
 
 	StartScriptBegin = -366707054,
 	StartScriptProceed = 1757622014, 
+
+	// a kick: freemode's handler sets bit args[3] of Global_1956971.f_829[args[4]] without checking args[4] (its sibling
+	// handler only accepts 0..25), so out of range values overrun the script array
+	PlayerBitsetUpdate = -800312339,
+	// sent together with PlayerBitsetUpdate by kickers. Freemode's handler (5 args): args[3] must be a player index 0..31
+	// (else ignored), args[4] sets or clears that bit in Global_2657890.65
+	UnknownKick = 921195243,
+
+	// 23 args: "<player> survived the bounty placed on them" (args[5] = the bounty, 10000 max), sent by freemode.
+	// Menus repeat it for the payout
+	BountySurvived = 2098360921,
 
 	RequestRandomEvent = -126218586,
 	CollectCollectable = 968269233,

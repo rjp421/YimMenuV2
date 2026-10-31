@@ -1,6 +1,7 @@
 #include "core/scripting/LuaLibrary.hpp"
 #include "core/scripting/LuaScript.hpp"
 #include "core/scripting/LuaUtils.hpp"
+#include "game/backend/Detections.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/Self.hpp"
 #include "game/gta/Player.hpp"
@@ -39,6 +40,29 @@ namespace YimMenu::Lua
 		static int IsModder(lua_State* state)
 		{
 			lua_pushboolean(state, GetObject<YimMenu::Player>(state, 1).IsModder());
+			return 1;
+		}
+
+		// player:add_detection(reason, level = 1): 1 = weak, 2 = strong, 3 = certain (3 points mark a player as a modder)
+		static int AddDetection(lua_State* state)
+		{
+			auto& player = GetObject<YimMenu::Player>(state, 1);
+			auto reason = CheckStringSafe(state, 2);
+			auto level = lua_gettop(state) >= 3 ? luaL_checkinteger(state, 3) : 1;
+			luaL_argcheck(state, level >= 1 && level <= 3, 3, "level must be 1 (weak), 2 (strong) or 3 (certain)");
+			Detections::Add(player, static_cast<DetectionLevel>(level), std::format("lua: {}", reason));
+			return 0;
+		}
+
+		static int GetDetections(lua_State* state)
+		{
+			auto detections = Detections::Describe(GetObject<YimMenu::Player>(state, 1).GetRID());
+			lua_createtable(state, static_cast<int>(detections.size()), 0);
+			for (int i = 0; i < static_cast<int>(detections.size()); i++)
+			{
+				lua_pushstring(state, detections[i].c_str());
+				lua_rawseti(state, -2, i + 1);
+			}
 			return 1;
 		}
 
@@ -232,6 +256,8 @@ namespace YimMenu::Lua
 					SetFunction(state, IsLocal, "is_local");
 					SetFunction(state, IsHost, "is_host");
 					SetFunction(state, IsModder, "is_modder");
+					SetFunction(state, AddDetection, "add_detection");
+					SetFunction(state, GetDetections, "get_detections");
 					SetFunction(state, GetId, "get_id");
 					SetFunction(state, GetName, "get_name");
 					SetFunction(state, GetPed, "get_ped");

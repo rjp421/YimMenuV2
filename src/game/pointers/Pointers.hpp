@@ -111,6 +111,9 @@ namespace YimMenu
 		BytePatch SpectatePatch; // used to patch the code that prevents you from spawning network objects when spectating
 		BytePatch WorldModelSpawnBypass;
 		PVOID ReceiveNetMessage;
+		PVOID CanApplyData;
+		PVOID ApplyVehicleControlData;
+		PVOID TrainConfigs; // rage::atArray<CTrainConfig>, CTrainConfig is 0x30 bytes with its carriage array at 0x20
 		PVOID HandleJoinRequest;
 		Functions::GetJoinResponseVersion GetJoinResponseVersion;
 		rage::netEventMgr** NetEventMgr;

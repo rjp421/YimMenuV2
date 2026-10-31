@@ -720,7 +720,9 @@ A session player. Construct with `Player(id)`.
 | `player:is_valid() -> boolean` | True if the slot is active. |
 | `player:is_local() -> boolean` | True if this is the local player. |
 | `player:is_host() -> boolean` | True if the session host. |
-| `player:is_modder() -> boolean` | True if flagged as a modder. |
+| `player:is_modder() -> boolean` | True if flagged as a modder (by the modder detection, or saved as one in Saved Players). |
+| `player:add_detection(reason: string, level?: integer)` | Reports suspicious behavior to the modder detection. `level`: 1 = weak (default), 2 = strong, 3 = certain. A player is flagged at 3 points; the same reason counts at most once per 10 seconds. Shown as `lua: <reason>`. |
+| `player:get_detections() -> string[]` | The detections of this player in this game session, most certain first, e.g. `"script event network bail kick (certain, 2x)"`. |
 | `player:get_id() -> integer` | Player index. |
 | `player:get_name() -> string` | Player name. |
 | `player:get_ped() -> Ped` | The player's ped. |

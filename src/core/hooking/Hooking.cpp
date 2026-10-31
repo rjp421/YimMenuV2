@@ -32,6 +32,10 @@ namespace YimMenu
 		BaseHook::Add<Hooks::Info::NetworkPlayerMgrShutdown>(new DetourHook("NetworkPlayerMgrShutdown", Pointers.NetworkPlayerMgrShutdown, Hooks::Info::NetworkPlayerMgrShutdown));
 
 		BaseHook::Add<Hooks::Network::ReceiveNetMessage>(new DetourHook("ReceiveNetMessage", Pointers.ReceiveNetMessage, Hooks::Network::ReceiveNetMessage));
+		if (Pointers.CanApplyData)
+			BaseHook::Add<Hooks::Network::CanApplyData>(new DetourHook("CanApplyData", Pointers.CanApplyData, Hooks::Network::CanApplyData));
+		if (Pointers.ApplyVehicleControlData)
+			BaseHook::Add<Hooks::Network::ApplyVehicleControlData>(new DetourHook("ApplyVehicleControlData", Pointers.ApplyVehicleControlData, Hooks::Network::ApplyVehicleControlData));
 		if (Pointers.HandleJoinRequest)
 			BaseHook::Add<Hooks::Network::HandleJoinRequest>(new DetourHook("HandleJoinRequest", Pointers.HandleJoinRequest, Hooks::Network::HandleJoinRequest));
 
@@ -50,6 +54,34 @@ namespace YimMenu
 		BaseHook::Add<Hooks::Matchmaking::MatchmakingUpdate>(new DetourHook("MatchmakingUpdate", Pointers.MatchmakingUpdate, Hooks::Matchmaking::MatchmakingUpdate));
 
 		BaseHook::Add<Hooks::Misc::AssistedAimShouldReleaseEntity>(new DetourHook("AssistedAimShouldReleaseEntity", Pointers.AssistedAimShouldReleaseEntity, Hooks::Misc::AssistedAimShouldReleaseEntity));
+	}
+
+	void Hooking::InstallObjectMgrHooks()
+	{
+		static std::atomic<bool> installed = false;
+		if (installed)
+			return;
+
+		auto object_mgr = Pointers.NetworkObjectMgr ? *Pointers.NetworkObjectMgr : nullptr;
+		if (!object_mgr)
+			return;
+
+		if (installed.exchange(true))
+			return;
+
+		// CNetworkObjectMgr::HandleCloneCreate/Sync/Remove are virtuals (slots 19, 21 and 23), so read their addresses from the vtable instead of scanning for patterns
+		auto vtable = *reinterpret_cast<void***>(object_mgr);
+		auto create = new DetourHook("HandleCloneCreate", vtable[19], Hooks::Network::HandleCloneCreate);
+		auto sync = new DetourHook("HandleCloneSync", vtable[21], Hooks::Network::HandleCloneSync);
+		auto remove = new DetourHook("HandleCloneRemove", vtable[23], Hooks::Network::HandleCloneRemove);
+		BaseHook::Add<Hooks::Network::HandleCloneCreate>(create);
+		BaseHook::Add<Hooks::Network::HandleCloneSync>(sync);
+		BaseHook::Add<Hooks::Network::HandleCloneRemove>(remove);
+
+		create->EnableNow();
+		sync->EnableNow();
+		remove->EnableNow();
+		LOG(INFO) << "Hooked the CNetworkObjectMgr clone handlers";
 	}
 
 	Hooking::~Hooking()

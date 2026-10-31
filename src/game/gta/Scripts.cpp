@@ -180,7 +180,15 @@ namespace YimMenu::Scripts
 				return;
 
 			net_component->DoHostMigration(Self::GetPlayer().GetHandle(), net_component->m_HostToken + 1, false);
+			SendScriptHostAck(thread);
+		}
+	}
 
+	void SendScriptHostAck(rage::scrThread* thread)
+	{
+		if (auto net_component = reinterpret_cast<GtaThread*>(thread)->m_NetComponent)
+		{
+			// "rejected" + "valid host": the receiver makes the sender host (enhanced +0x152B60, no token check)
 			Packet pkt;
 			pkt.WriteMessageHeader(rage::netMessage::Type::ScriptVerifyHostAck);
 			net_component->m_ScriptHandler->GetId()->Serialize(&pkt.GetBuffer());

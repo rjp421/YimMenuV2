@@ -90,6 +90,14 @@ namespace YimMenu
 			return GetInstance().FindImpl(addr);
 		}
 
+		// unlike Find, never inserts into the map, so it is safe to use from the network thread
+		static const SyncNodeId* TryFind(uintptr_t addr)
+		{
+			auto& map = GetInstance().m_Finder.m_SyncNodeMap;
+			auto it = map.find(addr);
+			return it == map.end() ? nullptr : &it->second;
+		}
+
 		static std::vector<SyncNodeId>& GetAllNodeIds()
 		{
 			return GetInstance().m_Finder.m_GlobalNodeIds;

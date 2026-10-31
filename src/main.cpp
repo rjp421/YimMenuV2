@@ -14,6 +14,7 @@
 #include "core/util/Wine.hpp"
 #include "core/scripting/LuaManager.hpp"
 #include "game/backend/AnticheatBypass.hpp"
+#include "game/backend/BailMonitor.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/SavedLocations.hpp"
 #include "game/backend/SavedPlayers.hpp"
@@ -68,6 +69,7 @@ namespace YimMenu
 		GUI::Init();
 
 		ScriptMgr::AddScript(std::make_unique<Script>(&NativeHooks::RunScript)); // runs once
+		ScriptMgr::AddScript(std::make_unique<Script>(&BailMonitor::RunScript));
 		ScriptMgr::AddScript(std::make_unique<Script>(&Tunables::RunScript));    // runs once
 		ScriptMgr::AddScript(std::make_unique<Script>(&AnticheatBypass::RunScript));
 		ScriptMgr::AddScript(std::make_unique<Script>(&Self::RunScript));

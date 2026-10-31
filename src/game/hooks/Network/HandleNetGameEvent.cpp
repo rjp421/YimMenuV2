@@ -1,17 +1,28 @@
+#include "core/commands/BoolCommand.hpp"
 #include "core/commands/LoopedCommand.hpp"
 #include "core/commands/Commands.hpp"
 #include "core/util/Joaat.hpp"
+#include "game/backend/Detections.hpp"
+#include "game/backend/NetRecorder.hpp"
+#include "game/backend/Players.hpp"
 #include "game/backend/Self.hpp"
 #include "game/gta/Natives.hpp"
 #include "game/hooks/Hooks.hpp"
 #include "game/pointers/Pointers.hpp"
 #include "types/network/CNetGamePlayer.hpp"
 #include "types/network/netGameEvent.hpp"
+#include "types/entity/fwEntity.hpp"
+#include "types/network/netObject.hpp"
 #include "types/rage/datBitBuffer.hpp"
 #include "types/script/globals/GlobalPlayerBD.hpp"
+#include "types/script/scrProgram.hpp"
+#include <set>
 
 namespace YimMenu::Hooks
 {
+	// legacy's "Block Traffic Manipulation" (same default)
+	static BoolCommand _BlockTrafficManipulation{"blocktrafficmanipulation", "Block Traffic Manipulation", "Blocks others from changing the traffic and pedestrians around you", true};
+
 	static void SendEventAck(rage::netEventMgr* event_mgr, CNetGamePlayer* source_player, CNetGamePlayer* target_player, uint32_t event_index, uint32_t event_handled_bits)
 	{
 		if (source_player->m_PlayerIndex != 255 && !Pointers.EventAck(0x778LL * source_player->m_PlayerIndex + (intptr_t)event_mgr + 0x2C408, target_player, event_index, event_handled_bits))
@@ -28,7 +39,7 @@ namespace YimMenu::Hooks
 	{
 		if (*(int16_t*)&event.m_InteriorIndex < -1)
 		{
-			LOG(INFO) << "blocked invalid interior crash from " << player.GetName();
+			LOG(WARNING) << "blocked invalid interior crash from " << player.GetName();
 			return true;
 		}
 
@@ -53,6 +64,139 @@ namespace YimMenu::Hooks
 		// more?
 
 		return false;
+	}
+
+	// records what an explosion was for the netlogs; only an owned explosion blamed on another player is logged
+	static void RecordExplosion(CExplosionEvent& event, Player player)
+	{
+		// an explosion attached to an entity (a car blowing up, a sticky bomb on a ped) carries its position relative to that
+		// entity, so record where it is on the map
+		auto position = event.m_Position;
+		bool attached = false;
+		if (event.m_TargetEnt2)
+		{
+			if (auto object = Pointers.GetNetObjectById(event.m_TargetEnt2); object && object->m_GameObject)
+			{
+				auto entity = reinterpret_cast<rage::fwEntity*>(object->m_GameObject)->GetPosition();
+				position = {position.x + entity->x, position.y + entity->y, position.z + entity->z};
+				attached = true;
+			}
+		}
+
+		std::uint8_t nearest_id = 255;
+		float nearest = 6553.5f;
+		for (auto& [id, other] : Players::GetPlayers())
+		{
+			if (auto ped = other.GetPed())
+			{
+				auto dist = position.GetDistance(ped.GetPosition());
+				if (dist < nearest)
+				{
+					nearest = dist;
+					nearest_id = id;
+				}
+			}
+		}
+		float to_us = 429496729.5f;
+		if (auto self = Self::GetPed())
+			to_us = std::min(position.GetDistance(self.GetPosition()), to_us);
+
+		std::int64_t owner_type = 0xFF, owner_player = 0xFF;
+		if (auto object = Pointers.GetNetObjectById(event.m_OwnerNetId))
+		{
+			owner_type = static_cast<std::int64_t>(object->m_ObjectType);
+			owner_player = static_cast<std::uint8_t>(object->m_OwnerId);
+		}
+
+		std::uint32_t flags = (event.m_AddOwnedExplosion ? NetRecorder::ExplosionOwned : 0) | (event.m_IsInvisible ? NetRecorder::ExplosionInvisible : 0)
+		    | (event.m_IsAudible ? NetRecorder::ExplosionAudible : 0) | (event.m_HasTargetEnt2 ? NetRecorder::ExplosionHasTarget2 : 0)
+		    | (attached ? NetRecorder::ExplosionAttached : 0);
+		std::uint32_t b = flags | nearest_id << 8 | static_cast<std::uint32_t>(std::min(nearest * 10.0f, 65535.0f)) << 16;
+
+		auto to_fixed = [](float value, float scale) {
+			return static_cast<std::int64_t>(std::llround(value * scale));
+		};
+		std::array<std::int64_t, 8> values = {
+		    event.m_OwnerNetId,
+		    owner_type | owner_player << 8,
+		    event.m_TargetEntity | static_cast<std::int64_t>(event.m_TargetEnt2) << 16,
+		    to_fixed(position.x, 100.0f),
+		    to_fixed(position.y, 100.0f),
+		    to_fixed(position.z, 100.0f),
+		    (to_fixed(std::clamp(event.m_DamageScale, 0.0f, 65.0f), 1000.0f) & 0xFFFF) | (to_fixed(std::clamp(event.m_CameraShake, -32.0f, 32.0f), 1000.0f) & 0xFFFF) << 16
+		        | to_fixed(to_us, 10.0f) << 32,
+		    event.m_AddOwnedExplosion ? static_cast<std::int64_t>(event.m_ScriptHash) << 32 | event.m_ProgramCounter : 0,
+		};
+		NetRecorder::RecordExplosion(player, static_cast<std::uint32_t>(event.m_ExplosionType), b, values);
+
+		// an owned explosion names the ped it is blamed on (legacy's "blame explosion"); log only, at most every 10 seconds per sender
+		if (event.m_AddOwnedExplosion && owner_type == static_cast<std::int64_t>(rage::netObject::Type::PLAYER) && owner_player != player.GetId())
+		{
+			static std::array<std::chrono::steady_clock::time_point, 256> last_logs{};
+			auto& last = last_logs[static_cast<std::uint8_t>(player.GetId())];
+			auto now = std::chrono::steady_clock::now();
+			if (now - last > std::chrono::seconds(10))
+			{
+				last = now;
+				auto& players = Players::GetPlayers();
+				auto blamed = players.find(static_cast<std::uint8_t>(owner_player));
+				LOGF(WARNING, "Explosion from {} is blamed on {} (owned explosion with another player's ped as owner, type {}; not blocked)", player.GetName(), blamed != players.end() ? blamed->second.GetName() : std::format("player {}", owner_player), static_cast<int>(event.m_ExplosionType));
+			}
+		}
+	}
+
+	// a script explosion carries the script and the program counter of the instruction that made it. If that instruction is
+	// a WAIT, or lies past the script's code, the script didn't make it: code injected into the script's thread did, which
+	// is how mod menus run their natives. Only scripts we have loaded can be checked. Log only, at most every 10 seconds per sender
+	static void CheckExplosionScript(CExplosionEvent& event, Player player)
+	{
+		if (!event.m_AddOwnedExplosion || !event.m_ScriptHash)
+			return;
+
+		rage::scrProgram* program = nullptr;
+		for (int i = 0; i < 176; i++)
+		{
+			auto candidate = Pointers.ScriptPrograms[i];
+			if (candidate && candidate->m_NameHash == event.m_ScriptHash && candidate->m_CodeSize && candidate->m_CodeBlocks)
+			{
+				program = candidate;
+				break;
+			}
+		}
+		if (!program)
+			return;
+
+		const char* reason = nullptr;
+		if (event.m_ProgramCounter >= program->m_CodeSize)
+		{
+			reason = "past the script's code";
+		}
+		else
+		{
+			// NATIVE opcode: 0x2C, then (args << 2 | returns), then the program's native index in big endian
+			auto pc = event.m_ProgramCounter;
+			auto code = [program](std::uint32_t index) {
+				auto address = program->GetCodeAddress(index);
+				return address ? *address : std::uint8_t(0);
+			};
+			if (code(pc) == 0x2C)
+			{
+				std::uint32_t native = code(pc + 2) << 8 | code(pc + 3);
+				if (native < program->m_NativeCount && program->m_NativeEntrypoints[native] == NativeInvoker::GetNativeHandler(NativeIndex::WAIT))
+					reason = "at a WAIT";
+			}
+		}
+		if (!reason)
+			return;
+
+		static std::array<std::chrono::steady_clock::time_point, 256> last_logs{};
+		auto& last = last_logs[static_cast<std::uint8_t>(player.GetId())];
+		auto now = std::chrono::steady_clock::now();
+		if (now - last > std::chrono::seconds(10))
+		{
+			last = now;
+			LOGF(WARNING, "Explosion from {} wasn't made by the game's scripts (type {}, script {} pc 0x{:X} is {}; log only)", player.GetName(), static_cast<int>(event.m_ExplosionType), program->m_Name ? program->m_Name : "?", event.m_ProgramCounter, reason);
+		}
 	}
 
 	static bool ScanPlaySoundEvent(CPlaySoundEvent& event, Player player)
@@ -122,13 +266,93 @@ namespace YimMenu::Hooks
 		return false;
 	}
 
+	// logs a blocked sound (at most once a second per player) and returns true when they come in bursts
+	static bool IsBlockedSoundSpam(Player player, const CPlaySoundEvent& event)
+	{
+		static constexpr auto WINDOW = std::chrono::seconds(5);
+		static constexpr int MAX_SOUNDS_PER_WINDOW = 10;
+
+		struct State
+		{
+			std::chrono::steady_clock::time_point m_WindowStart{};
+			int m_Count = 0;
+			std::chrono::steady_clock::time_point m_LastLog{};
+		};
+
+		static std::array<State, 256> states;
+		auto& state = states[static_cast<std::uint8_t>(player.GetId())];
+		auto now = std::chrono::steady_clock::now();
+
+		if (now - state.m_WindowStart > WINDOW)
+		{
+			state.m_WindowStart = now;
+			state.m_Count = 0;
+		}
+		++state.m_Count;
+
+		if (now - state.m_LastLog > std::chrono::seconds(1))
+		{
+			state.m_LastLog = now;
+			LOGF(WARNING, "Blocked NETWORK_PLAY_SOUND_EVENT from {} with IsEntity: {}, RefHash: {:X}, SoundHash: {:X}, SoundId: {}, ScriptHash: {:X} ({} in the last {} s)", player.GetName(), event.m_IsEntity, event.m_RefHash, event.m_SoundHash, event.m_SoundId, event.m_ScriptId.m_Hash, state.m_Count, std::chrono::duration_cast<std::chrono::seconds>(now - state.m_WindowStart).count());
+		}
+
+		return state.m_Count > MAX_SOUNDS_PER_WINDOW;
+	}
+
+	// drops synced scene updates from players that send them in bursts, which normal players hardly ever do
+	static bool IsSyncedSceneSpam(Player player)
+	{
+		static constexpr auto WINDOW = std::chrono::seconds(5);
+		// normal players send one burst of 11-12 within 2 seconds, spammers 24-28 per 5 seconds for minutes
+		static constexpr int MAX_EVENTS_PER_WINDOW = 20;
+
+		struct State
+		{
+			std::chrono::steady_clock::time_point m_WindowStart{};
+			int m_Count = 0;
+			std::chrono::steady_clock::time_point m_LastLog{};
+		};
+
+		static std::array<State, 256> states;
+		auto& state = states[static_cast<std::uint8_t>(player.GetId())];
+		auto now = std::chrono::steady_clock::now();
+
+		if (now - state.m_WindowStart > WINDOW)
+		{
+			state.m_WindowStart = now;
+			state.m_Count = 0;
+		}
+
+		if (++state.m_Count <= MAX_EVENTS_PER_WINDOW)
+			return false;
+
+		if (now - state.m_LastLog > std::chrono::seconds(30))
+		{
+			state.m_LastLog = now;
+			LOGF(WARNING, "Blocked NETWORK_UPDATE_SYNCED_SCENE_EVENT spam from {}", player.GetName());
+		}
+
+		return true;
+	}
 	bool ShouldAllowNetEvent(Player player, uint16_t event_id, rage::datBitBuffer& buffer)
 	{
 		switch (static_cast<rage::netGameEvent::Type>(event_id))
 		{
 		case rage::netGameEvent::Type::REQUEST_CONTROL_EVENT:
 		{
-			// TODO
+			// the game hands over the vehicle we are driving on request, and the new owner can then move it with us inside.
+			// Legacy refuses this in freemode unless the requester drives the vehicle; when we drive, nobody else does.
+			// Jobs are left alone, since their scripts may move control of our vehicle around
+			auto object_id = buffer.Read<std::uint16_t>(13);
+			auto vehicle = Self::GetVehicle();
+
+			if (vehicle && Self::IsDriver() && vehicle.GetNetworkObjectId() == object_id && !NETWORK::NETWORK_IS_ACTIVITY_SESSION())
+			{
+				LOGF(WARNING, "Blocked REQUEST_CONTROL_EVENT for our vehicle from {}", player.GetName());
+				Detections::Add(player, DetectionLevel::Weak, "requesting control of our vehicle");
+				return false;
+			}
+
 			break;
 		}
 		case rage::netGameEvent::Type::WEAPON_DAMAGE_EVENT:
@@ -139,7 +363,19 @@ namespace YimMenu::Hooks
 			if (event.m_WeaponType == "WEAPON_TRANQUILIZER"_J)
 			{
 				LOGF(WARNING, "Blocked WEAPON_DAMAGE_EVENT from {} with m_WeaponType == WEAPON_TRANQUILIZER", player.GetName());
+				Detections::Add(player, DetectionLevel::Strong, "tranquilizer damage (not available in online)");
 				return false;
+			}
+
+			// legacy blocks a weapon hash that isn't a CWeaponInfo as a crash; IS_WEAPON_VALID asks the same weapon info manager.
+			// Log only for now: once per sender and hash, at most 100 per game run
+			if (!WEAPON::IS_WEAPON_VALID(event.m_WeaponType))
+			{
+				static std::mutex mutex;
+				static std::set<std::pair<std::uint64_t, std::uint32_t>> seen;
+				std::lock_guard lock(mutex);
+				if (seen.size() < 100 && seen.emplace(player.GetRID(), event.m_WeaponType).second)
+					LOGF(WARNING, "Would block WEAPON_DAMAGE_EVENT from {} with weapon 0x{:08X}: IS_WEAPON_VALID is false (legacy blocks it as a crash, log only)", player.GetName(), event.m_WeaponType);
 			}
 
 			break;
@@ -148,6 +384,8 @@ namespace YimMenu::Hooks
 		{
 			CExplosionEvent event;
 			event.Deserialize(buffer);
+			RecordExplosion(event, player);
+			CheckExplosionScript(event, player);
 
 			if (ScanExplosionEvent(event, player))
 			{
@@ -190,12 +428,51 @@ namespace YimMenu::Hooks
 
 			break;
 		}
+		case rage::netGameEvent::Type::NETWORK_UPDATE_SYNCED_SCENE_EVENT:
+		{
+			if (IsSyncedSceneSpam(player))
+				return false;
+
+			break;
+		}
 		case rage::netGameEvent::Type::SCRIPT_WORLD_STATE_EVENT:
 		{
 			auto type = buffer.Read<CScriptWorldStateEvent::Type>(4);
 			buffer.Read<bool>(1);
 			CGameScriptId id;
 			id.Deserialize(buffer);
+
+			// ported from legacy
+			if (type > CScriptWorldStateEvent::Type::VehiclePlayerLocking)
+			{
+				LOGF(WARNING, "Blocked SCRIPT_WORLD_STATE_EVENT with invalid type {} from {}", static_cast<std::uint32_t>(type), player.GetName());
+				// strong, not certain (no host kick): this event is common
+				Detections::Add(player, DetectionLevel::Strong, "invalid world state type crash");
+				return false;
+			}
+
+			if (type == CScriptWorldStateEvent::Type::Rope)
+			{
+				buffer.Read<int>(9);        // network rope id
+				buffer.Read<int>(19, true); // position
+				buffer.Read<int>(19, true);
+				buffer.Read<int>(19);
+				buffer.Read<int>(19, true); // rotation
+				buffer.Read<int>(19, true);
+				buffer.Read<int>(19);
+				float max_length = buffer.ReadSignedFloat(16, 100.0f);
+				int rope_type = buffer.Read<int>(4);
+				float initial_length = buffer.ReadSignedFloat(16, 100.0f);
+				float min_length = buffer.ReadSignedFloat(16, 100.0f);
+
+				if (rope_type == 0 || initial_length < min_length || max_length < min_length || max_length < 0.0f)
+				{
+					LOGF(WARNING, "Blocked SCRIPT_WORLD_STATE_EVENT of type Rope with invalid lengths from {}", player.GetName());
+					// strong, not certain: legacy's field layout of rope data isn't verified on enhanced
+					Detections::Add(player, DetectionLevel::Strong, "rope crash");
+					return false;
+				}
+			}
 
 			if (type == CScriptWorldStateEvent::Type::PopGroupOverride)
 			{
@@ -207,13 +484,16 @@ namespace YimMenu::Hooks
 				{
 					// pop group override crash
 					LOGF(WARNING, "Blocked SCRIPT_WORLD_STATE_EVENT of type PopGroupOverride with invalid params from {}", player.GetName());
+					Detections::Add(player, DetectionLevel::Certain, "pop group override crash");
 					return false;
 				}
 			}
-			else if (type == CScriptWorldStateEvent::Type::PopMultiplierArea && !NETWORK::NETWORK_IS_ACTIVITY_SESSION())
+			else if (type == CScriptWorldStateEvent::Type::PopMultiplierArea && _BlockTrafficManipulation.GetState() && !NETWORK::NETWORK_IS_ACTIVITY_SESSION())
 			{
 				// Stop traffic
 				LOGF(WARNING, "Blocked SCRIPT_WORLD_STATE_EVENT of type PopMultiplierArea from {}", player.GetName());
+				// no points: normal game scripts send it too
+				Detections::Add(player, DetectionLevel::None, "traffic manipulation");
 				return false;
 			}
 
@@ -234,6 +514,7 @@ namespace YimMenu::Hooks
 				{
 					// vehicle temp action crash
 					LOGF(WARNING, "Blocked SCRIPT_ENTITY_STATE_CHANGE_EVENT of type SettingOfTaskVehicleTempAction with invalid params from {}", player.GetName());
+					Detections::Add(player, DetectionLevel::Certain, "vehicle temp action crash");
 					return false;
 				}
 
@@ -241,6 +522,7 @@ namespace YimMenu::Hooks
 				{
 					// Ped takeover
 					LOGF(WARNING, "Blocked SCRIPT_ENTITY_STATE_CHANGE_EVENT of type SettingOfTaskVehicleTempAction on our local ped from {}", player.GetName());
+					Detections::Add(player, DetectionLevel::Strong, "taking over our player");
 					return false;
 				}
 
@@ -294,7 +576,10 @@ namespace YimMenu::Hooks
 
 			if (ScanPlaySoundEvent(event, player))
 			{
-				LOGF(WARNING, "Blocked NETWORK_PLAY_SOUND_EVENT from {} with IsEntity: {}, RefHash: {:X}, SoundHash: {:X}, SoundId: {}, ScriptHash: {:X}", player.GetName(), event.m_IsEntity, event.m_RefHash, event.m_SoundHash, event.m_SoundId, event.m_ScriptId.m_Hash);
+				if (IsBlockedSoundSpam(player, event))
+					Detections::Add(player, DetectionLevel::Strong, "sound spam");
+				else
+					Detections::Add(player, DetectionLevel::Weak, "blocked sound");
 				return false;
 			}
 
@@ -305,9 +590,11 @@ namespace YimMenu::Hooks
 			CUpdateFxnEvent event;
 			event.Deserialize(buffer);
 
+			// the game's own anticheat caught them and their game reports it to everyone (legacy's TRIGGERED_ANTICHEAT)
 			if (event.m_0x30 != 6) // false positives when telemetry endpoint is unreachable
 			{
-				// Triggered anti cheat
+				LOGF(WARNING, "{} triggered Rockstar's anticheat (REPORT_MYSELF_EVENT type {})", player.GetName(), event.m_0x30);
+				Detections::Add(player, DetectionLevel::Modder, std::format("triggered the game's anticheat (type {})", event.m_0x30));
 			}
 
 			static auto cheaterPool = Commands::GetCommand<LoopedCommand>("cheaterpool"_J);
@@ -345,6 +632,88 @@ namespace YimMenu::Hooks
 				LOGF(WARNING, "Blocked RAGDOLL_REQUEST_EVENT on our local ped from {}", player.GetName());
 				return false;
 			}
+
+			break;
+		}
+		// the cases below are ported from legacy
+		case rage::netGameEvent::Type::REMOVE_WEAPON_EVENT:
+		{
+			auto ped_id = buffer.Read<std::uint16_t>(13);
+			auto weapon = buffer.Read<std::uint32_t>(32);
+
+			if (weapon == "WEAPON_UNARMED"_J)
+			{
+				LOGF(WARNING, "Blocked REMOVE_WEAPON_EVENT with WEAPON_UNARMED (crash) from {}", player.GetName());
+				Detections::Add(player, DetectionLevel::Certain, "remove unarmed crash");
+				return false;
+			}
+
+			if (Self::GetPed().GetNetworkObjectId() == ped_id)
+			{
+				LOGF(WARNING, "Blocked REMOVE_WEAPON_EVENT on our local ped from {} (weapon {:X})", player.GetName(), weapon);
+				Detections::Add(player, DetectionLevel::Weak, "removing our weapons");
+				return false;
+			}
+
+			break;
+		}
+		case rage::netGameEvent::Type::GIVE_WEAPON_EVENT:
+		{
+			auto ped_id = buffer.Read<std::uint16_t>(13);
+			auto weapon = buffer.Read<std::uint32_t>(32);
+
+			// not a detection: scripts might give weapons to other players in some modes
+			if (Self::GetPed().GetNetworkObjectId() == ped_id)
+			{
+				LOGF(WARNING, "Blocked GIVE_WEAPON_EVENT on our local ped from {} (weapon {:X})", player.GetName(), weapon);
+				return false;
+			}
+
+			break;
+		}
+		case rage::netGameEvent::Type::GIVE_CONTROL_EVENT:
+		{
+			// legacy blocks object types past TRAIN (a crash)
+			buffer.Read<std::uint32_t>(32); // timestamp
+			int count = std::min(buffer.Read<int>(2), 3);
+			buffer.Read<bool>(1); // all objects migrate together
+
+			for (int i = 0; i < count; i++)
+			{
+				buffer.Read<std::uint16_t>(13); // object id
+				auto object_type = buffer.Read<std::uint32_t>(4);
+				buffer.Read<int>(3); // migration type
+
+				// enhanced added GLASS_PANE after TRAIN
+				if (object_type > static_cast<std::uint32_t>(rage::netObject::Type::GLASS_PANE))
+				{
+					LOGF(WARNING, "Blocked GIVE_CONTROL_EVENT with invalid object type {} from {}", object_type, player.GetName());
+					Detections::Add(player, DetectionLevel::Certain, "give control with an invalid object type");
+					return false;
+				}
+			}
+
+			break;
+		}
+		case rage::netGameEvent::Type::NETWORK_CLEAR_PED_TASKS_EVENT:
+		{
+			auto ped_id = buffer.Read<std::uint16_t>(13);
+
+			if (Self::GetPed().GetNetworkObjectId() == ped_id)
+			{
+				LOGF(WARNING, "Blocked NETWORK_CLEAR_PED_TASKS_EVENT on our local ped from {}", player.GetName());
+				Detections::Add(player, DetectionLevel::Weak, "clearing our ped tasks");
+				return false;
+			}
+
+			break;
+		}
+		case rage::netGameEvent::Type::KICK_VOTES_EVENT:
+		{
+			// normal players can vote to kick, so only tell the user
+			auto voted = buffer.Read<std::uint32_t>(32);
+			if (auto self = Self::GetPlayer().GetId(); self < 32 && (voted & (1u << self)))
+				LOGF(WARNING, "{} voted to kick you", player.GetName());
 
 			break;
 		}

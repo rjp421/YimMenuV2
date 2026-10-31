@@ -205,6 +205,25 @@ namespace YimMenu
 			GetJoinResponseVersion = ptr.Add(1).Rip().As<Functions::GetJoinResponseVersion>();
 		});
 
+		// the call in CNetworkObjectMgr::HandleCloneSync: CanApplyData(object->GetSyncTree(), object)
+		constexpr auto canApplyDataPtrn = Pattern<"48 8B 07 48 89 F9 FF 50 60 48 89 C1 48 89 FA E8 ? ? ? ? 84 C0 74">("CanApplyData");
+		scanner.Add(canApplyDataPtrn, [this](PointerCalculator ptr) {
+			CanApplyData = ptr.Add(0xF).Add(1).Rip().As<PVOID>();
+		});
+
+		// a CTrain function: cmp [count], cx / jbe / mov rax, [configs] / lea rcx, [rcx+rcx*2] (configs are 0x30 bytes)
+		constexpr auto trainConfigsPtrn = Pattern<"66 39 0D ? ? ? ? 76 14 48 8B 05 ? ? ? ? 48 8D 0C 49">("TrainConfigs");
+		scanner.Add(trainConfigsPtrn, [this](PointerCalculator ptr) {
+			TrainConfigs = ptr.Add(0xC).Rip().As<PVOID>();
+		});
+
+		// the setter that applies CVehicleControlDataNode (enhanced +0x15472C0); the pattern is its unchecked "if (m_IsSubmarineCar) write
+		// m_RudderRotation to vehicle->vfunc_0x640()" block, 0x117 bytes in
+		constexpr auto applyVehicleControlDataPtrn = Pattern<"41 80 BD 19 01 00 00 00 74 ? 48 8B 06 48 89 F1 FF 90 40 06 00 00 F3 41 0F 10 85 1C 01 00 00">("ApplyVehicleControlData");
+		scanner.Add(applyVehicleControlDataPtrn, [this](PointerCalculator ptr) {
+			ApplyVehicleControlData = ptr.Sub(0x117).As<PVOID>();
+		});
+
 		constexpr auto netEventMgrPtrn = Pattern<"4C 8B 05 ? ? ? ? 44 0F B7 CA">("NetEventMgr");
 		scanner.Add(netEventMgrPtrn, [this](PointerCalculator ptr) {
 			NetEventMgr = ptr.Add(3).Rip().As<rage::netEventMgr**>();

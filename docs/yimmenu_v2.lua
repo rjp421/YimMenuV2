@@ -999,6 +999,12 @@ function Player:is_local() end
 function Player:is_host() end
 ---@return boolean
 function Player:is_modder() end
+---Reports suspicious behavior to the modder detection (3 points flag a player; the same reason counts once per 10 s)
+---@param reason string
+---@param level? integer 1 = weak (default), 2 = strong, 3 = certain
+function Player:add_detection(reason, level) end
+---@return string[] detections of this game session, most certain first
+function Player:get_detections() end
 ---@return integer
 function Player:get_id() end
 ---@return string
