@@ -1,10 +1,13 @@
 #include "SavedPlayers.hpp"
+#include "core/backend/FiberPool.hpp"
 #include "core/backend/ScriptMgr.hpp"
 #include "core/commands/BoolCommand.hpp"
 #include "core/commands/Command.hpp"
 #include "core/filemgr/FileMgr.hpp"
 #include "core/frontend/Notifications.hpp"
 #include "game/backend/PlayerData.hpp"
+#include "game/backend/Self.hpp"
+#include "game/gta/Natives.hpp"
 #include "game/pointers/Pointers.hpp"
 #include "types/socialclub/rlQueryPresenceAttributesContext.hpp"
 #include "types/socialclub/rlScGamerHandle.hpp"
@@ -328,10 +331,29 @@ namespace YimMenu
 				LOGF(WARNING, "Failed to load saved players: {}", e.what());
 			}
 		}
+		RefreshBlockedJoins();
+	}
+
+	void SavedPlayers::RefreshBlockedJoins()
+	{
+		std::lock_guard lock(m_BlockedJoinsMutex);
+		m_BlockedJoins.clear();
+		for (auto& [rid, data] : m_SavedPlayers)
+			if (data.m_BlockJoin)
+				m_BlockedJoins[rid] = data.m_BlockJoinReason;
+	}
+
+	std::optional<int> SavedPlayers::GetBlockJoinReasonImpl(std::uint64_t rid)
+	{
+		std::lock_guard lock(m_BlockedJoinsMutex);
+		if (auto it = m_BlockedJoins.find(rid); it != m_BlockedJoins.end())
+			return it->second;
+		return std::nullopt;
 	}
 
 	void SavedPlayers::SaveImpl()
 	{
+		RefreshBlockedJoins();
 		try
 		{
 			nlohmann::json json;
@@ -358,6 +380,38 @@ namespace YimMenu
 			{
 				data->m_Name = player.GetName();
 				Save(); // should we queue a save instead?
+			}
+
+			// they got in anyway: we weren't host when they joined, or they joined through a transition
+			if (data->m_BlockJoin && !player.IsLocal())
+			{
+				std::string name = player.GetName();
+				auto rid = player.GetRID();
+				auto id = player.GetId();
+				LOGF(WARNING, "Blocked player {} (RID {}) joined the session (Block Join)", name, rid);
+				FiberPool::Push([name, rid, id] {
+					// when we join a session, its players join too while we briefly still look like the host, so let it settle first
+					ScriptMgr::Yield(5s);
+
+					Player target(static_cast<std::uint8_t>(id));
+					if (!target.IsValid() || target.GetRID() != rid)
+						return;
+					// a kick from someone who isn't the host is a vote kick, which only tells them about it
+					if (target.IsHost())
+					{
+						LOGF(WARNING, "Blocked player {} (RID {}) is the session host, not kicking them", name, rid);
+						Notifications::Show("Block Join", std::format("{} is hosting this session", name), NotificationType::Warning);
+						return;
+					}
+					if (!Self::GetPlayer().IsHost())
+					{
+						Notifications::Show("Block Join", std::format("{} joined, but you aren't the host", name), NotificationType::Warning);
+						return;
+					}
+					LOGF(WARNING, "Host kicking {} (RID {}) for Block Join", name, rid);
+					Notifications::Show("Block Join", std::format("Kicked {}", name), NotificationType::Warning);
+					NETWORK::NETWORK_SESSION_KICK_PLAYER(id);
+				});
 			}
 		}
 	}
