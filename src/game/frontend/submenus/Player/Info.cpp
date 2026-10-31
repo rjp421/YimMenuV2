@@ -2,6 +2,7 @@
 
 #include "core/frontend/Notifications.hpp"
 #include "core/backend/FiberPool.hpp"
+#include "game/backend/PlayerData.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/SavedPlayers.hpp"
 #include "game/backend/Self.hpp"
@@ -36,18 +37,18 @@ namespace YimMenu::Submenus
 				ImGui::Text("Rank: %d (%d RP)", Players::GetSelected().GetRank(), Players::GetSelected().GetRP());
 				ImGui::Text("Money: %d", Players::GetSelected().GetMoney());
 
-				if (Players::GetSelected().GetPed())
+				// read on the game thread by Players::RunScript
+				if (auto& data = Players::GetSelected().GetData(); data.m_HasPed)
 				{
-					auto health = Players::GetSelected().GetPed().GetHealth();
-					auto maxHealth = Players::GetSelected().GetPed().GetMaxHealth();
-					std::string healthStr = std::format("HP: {}/{} ({:.2f}%)", health, maxHealth, (float)health / maxHealth * 100.0f);
+					auto health = data.m_Health;
+					auto maxHealth = data.m_MaxHealth;
+					std::string healthStr = std::format("HP: {}/{} ({:.2f}%)", health, maxHealth, maxHealth ? (float)health / maxHealth * 100.0f : 0.0f);
 					ImGui::Text("%s", healthStr.c_str());
 
-					auto coords = Players::GetSelected().GetPed().GetPosition();
+					auto coords = data.m_Position;
 					ImGui::Text("Coords: %.2f, %.2f, %.2f", coords.x, coords.y, coords.z);
 
-					auto distance = Players::GetSelected().GetPed().GetPosition().GetDistance(Self::GetPed().GetPosition());
-					ImGui::Text("Distance: %.2f", distance);
+					ImGui::Text("Distance: %.2f", data.m_Distance);
 				}
 				else
 				{
@@ -109,7 +110,9 @@ namespace YimMenu::Submenus
 				}
 
 				if (ImGui::Button("Add to Saved"))
-					SavedPlayers::GetPlayerData(Players::GetSelected());
+					FiberPool::Push([player = Players::GetSelected()] {
+						SavedPlayers::GetPlayerData(player);
+					});
 				ImGui::SameLine();
 				if (ImGui::Button("View SC Profile"))
 					FiberPool::Push([] {
