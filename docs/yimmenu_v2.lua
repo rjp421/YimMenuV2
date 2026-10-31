@@ -1046,6 +1046,16 @@ function Player:set_fall_distance_override(distance) end
 ---@param ped Ped
 ---@param delete_old? boolean # default true
 function Player:set_ped(ped, delete_old) end
+---@param kick_type kick_types
+function Player:kick(kick_type) end
+
+---@enum kick_types
+kick_types = {
+    host = 0,
+    script_host = 1,
+    freemode_state = 2,
+    null_function = 3,
+}
 
 players = {}
 

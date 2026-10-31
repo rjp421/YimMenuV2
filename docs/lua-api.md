@@ -742,6 +742,20 @@ A session player. Construct with `Player(id)`.
 | `player:teleport_to(pos)` | Teleports the player. |
 | `player:set_fall_distance_override(distance)` | Overrides fall distance. |
 | `player:set_ped(ped, [delete_old])` | Sets the player's ped (delete old default true). |
+| `player:kick(kick_type)` | Kicks the player using a value from the global `kick_types` table. |
+
+#### kick_types
+
+| Constant | Value | Kick |
+| --- | --- | --- |
+| `kick_types.host` | 0 | Host Kick (only works as session host) |
+| `kick_types.script_host` | 1 | Script Host Kick |
+| `kick_types.freemode_state` | 2 | Freemode State Kick |
+| `kick_types.null_function` | 3 | Null Function Kick |
+
+```lua
+players.get_selected():kick(kick_types.script_host)
+```
 
 ---
 
