@@ -1,5 +1,6 @@
 #include "Players.hpp"
 
+#include "Player/Help.hpp"
 #include "Player/Info.hpp"
 #include "Player/Toxic.hpp"
 #include "Player/Troll.hpp"
@@ -129,6 +130,7 @@ namespace YimMenu::Submenus
 	    Submenu::Submenu("Players", ICON_FA_USERS)
 	{
 		AddCategory(std::move(BuildInfoMenu()));
+		AddCategory(std::move(BuildHelpMenu()));
 		AddCategory(std::move(BuildTrollMenu()));
 		AddCategory(std::move(BuildToxicMenu()));
 		AddCategory(std::move(BuildKickMenu()));

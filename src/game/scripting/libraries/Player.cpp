@@ -1,11 +1,14 @@
+#include "core/backend/FiberPool.hpp"
 #include "core/commands/Commands.hpp"
 #include "core/scripting/LuaLibrary.hpp"
 #include "core/scripting/LuaScript.hpp"
 #include "core/scripting/LuaUtils.hpp"
 #include "game/backend/Detections.hpp"
+#include "game/backend/PlayerData.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/Self.hpp"
 #include "game/commands/PlayerCommand.hpp"
+#include "game/features/players/help/PlayerHelp.hpp"
 #include "game/gta/Player.hpp"
 #include "types/rage/vector.hpp"
 
@@ -227,6 +230,104 @@ namespace YimMenu::Lua
 			return 0;
 		}
 
+		// help (pickup rewards): queued in a fiber, so they return at once
+		template<auto Fn>
+		static int HelpBits(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			if (player.IsValid())
+			{
+				int bits = 1 << player.GetId();
+				FiberPool::Push([bits] {
+					Fn(bits);
+				});
+			}
+			return 0;
+		}
+
+		static int GiveWeapons(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			FiberPool::Push([player] {
+				Features::PlayerHelp::GiveWeapons(player);
+			});
+			return 0;
+		}
+
+		static int GivePickupReward(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			auto reward = GetHashArgument(state, 2);
+			if (player.IsValid())
+			{
+				int bits = 1 << player.GetId();
+				FiberPool::Push([bits, reward] {
+					Features::PlayerHelp::GiveReward(bits, reward);
+				});
+			}
+			return 0;
+		}
+
+		static int SetSemiGodmode(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			if (player.IsValid())
+				player.GetData().m_SemiGodmode = CheckBooleanSafe(state, 2);
+			return 0;
+		}
+
+		static int IsSemiGodmode(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			lua_pushboolean(state, player.IsValid() && player.GetData().m_SemiGodmode);
+			return 1;
+		}
+
+		static int SetAutoFixVehicle(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			if (player.IsValid())
+				player.GetData().m_AutoFixVehicle = CheckBooleanSafe(state, 2);
+			return 0;
+		}
+
+		static int IsAutoFixVehicle(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			lua_pushboolean(state, player.IsValid() && player.GetData().m_AutoFixVehicle);
+			return 1;
+		}
+
+		static int SetNeverWanted(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			if (player.IsValid())
+				player.GetData().m_NeverWanted = CheckBooleanSafe(state, 2);
+			return 0;
+		}
+
+		static int IsNeverWanted(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			lua_pushboolean(state, player.IsValid() && player.GetData().m_NeverWanted);
+			return 1;
+		}
+
+		static int SetOffRadar(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			if (player.IsValid())
+				player.GetData().m_OffRadar = CheckBooleanSafe(state, 2);
+			return 0;
+		}
+
+		static int IsOffRadar(lua_State* state)
+		{
+			auto player = GetObject<YimMenu::Player>(state, 1);
+			lua_pushboolean(state, player.IsValid() && player.GetData().m_OffRadar);
+			return 1;
+		}
+
 		static int PlayersGetAll(lua_State* state)
 		{
 			lua_newtable(state);
@@ -311,6 +412,23 @@ namespace YimMenu::Lua
 					SetFunction(state, SetFallDistanceOverride, "set_fall_distance_override");
 					SetFunction(state, Kick, "kick");
 					SetFunction(state, SetPed, "set_ped");
+					SetFunction(state, HelpBits<&Features::PlayerHelp::GiveHealth>, "give_health");
+					SetFunction(state, HelpBits<&Features::PlayerHelp::GiveArmor>, "give_armor");
+					SetFunction(state, HelpBits<&Features::PlayerHelp::GiveArmor>, "give_armour"); // old name, kept for existing scripts
+					SetFunction(state, HelpBits<&Features::PlayerHelp::GiveAmmo>, "give_ammo");
+					SetFunction(state, HelpBits<&Features::PlayerHelp::FixVehicle>, "fix_vehicle");
+					SetFunction(state, GiveWeapons, "give_weapons");
+					SetFunction(state, GivePickupReward, "give_pickup_reward");
+					SetFunction(state, SetSemiGodmode, "set_semi_godmode");
+					SetFunction(state, IsSemiGodmode, "is_semi_godmode");
+					SetFunction(state, SetAutoFixVehicle, "set_auto_fix_vehicle");
+					SetFunction(state, IsAutoFixVehicle, "is_auto_fix_vehicle");
+					SetFunction(state, HelpBits<&Features::PlayerHelp::ClearWanted>, "clear_wanted");
+					SetFunction(state, HelpBits<&Features::PlayerHelp::GiveOffRadar>, "give_off_radar");
+					SetFunction(state, SetNeverWanted, "set_never_wanted");
+					SetFunction(state, IsNeverWanted, "is_never_wanted");
+					SetFunction(state, SetOffRadar, "set_off_radar");
+					SetFunction(state, IsOffRadar, "is_off_radar");
 				}
 				lua_setfield(state, -2, "__index");
 			}
