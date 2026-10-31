@@ -6,6 +6,7 @@
 #include "game/backend/Detections.hpp"
 #include "game/backend/NetRecorder.hpp"
 #include "game/backend/Players.hpp"
+#include "game/backend/SyncProtections.hpp"
 #include "game/frontend/ChatDisplay.hpp"
 #include "game/hooks/Hooks.hpp"
 #include "game/gta/Packet.hpp"
@@ -182,6 +183,9 @@ namespace YimMenu::Hooks
 		if (!IsRoutineMessage(type, fr_evt->m_Length))
 			NetRecorder::Record(Players::GetByMessageId(fr_evt->m_MsgId), NetRecorder::Kind::Message, static_cast<uint32_t>(type), fr_evt->m_Length);
 
+		// kept until the original handler below has run the events
+		std::optional<SyncProtections::SenderScope> event_sender;
+
 		switch (type)
 		{
 		case rage::netMessage::Type::TextMessage:
@@ -213,6 +217,10 @@ namespace YimMenu::Hooks
 
 			if (!player)
 				break;
+
+			// GIVE_CONTROL carries the object's migration data, which the game checks with CanApplyData, so the sync checks
+			// (remote teleport into a vehicle and the rest) need to know who sent it
+			event_sender.emplace(player);
 
 			uint32_t count = buffer.Read<uint32_t>(5);
 			uint32_t buffer_size = buffer.Read<uint32_t>(15);

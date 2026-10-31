@@ -13,7 +13,8 @@ namespace YimMenu
 	class SyncProtections
 	{
 	public:
-		// Set by the clone create/sync hooks while the game handles the message, so the checks know who sent the data.
+		// Set by the clone create/sync hooks and for packed events (GIVE_CONTROL's migration data) while the game handles the
+		// message, so the checks know who sent the data.
 		// CanApplyData is also called for things that don't come from the network; those are not checked.
 		class SenderScope
 		{
