@@ -14,7 +14,7 @@ This is a fork of [YimMenuV2](https://github.com/YimMenu/YimMenuV2) for GTA V En
 
 | Branch | What it adds | Where |
 |---|---|---|
-| `feature/protections` | Network protections, modder detection, the net recorder and the bail monitor ([details below](#protections-and-modder-detection)) | Settings > Protections, Debug > Misc |
+| `feature/protections` | **Work in progress.** Network protections, modder detection, the net recorder and the bail monitor ([details below](#protections-and-modder-detection)) | Settings > Protections, Debug > Misc |
 | `feature/block-join` | Block Join for a saved player, with the reason their game shows when the join is refused | Network > Saved Players |
 | `feature/saved-player-modder` | An Is Modder checkbox to mark or unmark a saved player by hand. It applies right away if they are in the session | Network > Saved Players |
 | `feature/player-help` | A Help category for the selected player. One-time actions: health, armor, ammo, weapons, fix vehicle, clear wanted level, off the radar. Toggles: Semi Godmode, Auto Fix Vehicle, Never Wanted, Off The Radar. Give Weapons moves here from Troll. All of it is in the Lua API too | Players > Help |
@@ -41,6 +41,8 @@ Several of these bugs are in upstream too.
 | `fix/objective-teleport` | Teleport to Objective often went to another player, because player and objective blips look alike. Player blips are now skipped, and objective colors come first. |
 
 ## Protections and modder detection
+
+> **Work in progress.** These are tested in public sessions and still change often. A new check starts as log-only, or blocks without adding points, until it has been seen to hit only modders.
 
 Most of this is ported from [legacy YimMenu](https://github.com/Mr-X-GTA/YimMenu) and checked against the Enhanced game.
 
