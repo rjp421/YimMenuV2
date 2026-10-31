@@ -333,7 +333,7 @@ namespace rage
 			if (size <= 32)
 				return ReadDword(reinterpret_cast<int*>(out), size);
 
-			return ReadDword(reinterpret_cast<int*>(out), 32) && !ReadDword(reinterpret_cast<int*>(out) + 1, size - 32);
+			return ReadDword(reinterpret_cast<int*>(out), 32) && ReadDword(reinterpret_cast<int*>(out) + 1, size - 32);
 		}
 
 		inline bool WriteQword(uint64_t value, int size)
@@ -352,10 +352,11 @@ namespace rage
 			unsigned int last_bit{};
 			uint64_t rest{};
 
-			if (!ReadQword((uint64_t*)&last_bit, 1) || ReadQword(&rest, size - 1))
+			if (!ReadQword((uint64_t*)&last_bit, 1) || !ReadQword(&rest, size - 1))
 				return false;
 
-			*value = ((uint64_t)last_bit << 63) | rest ^ -(int64_t)last_bit;
+			// sign bit, then the magnitude (same as the game's reader)
+			*value = last_bit + (rest ^ -(int64_t)last_bit);
 			return true;
 		}
 
