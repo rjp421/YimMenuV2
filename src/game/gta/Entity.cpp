@@ -71,7 +71,14 @@ namespace YimMenu
 	bool Entity::IsValid()
 	{
 		if (m_Handle)
+		{
+			// DOES_ENTITY_EXIST without a running script thread (the render and network threads) trips the game's script
+			// guard, and our game then sends a type 5 REPORT_MYSELF_EVENT to everyone. The pool lookup gives the same answer
+			if (!rage::tlsContext::Get()->m_CurrentScriptThread)
+				return Pointers.HandleToPtr(m_Handle) != nullptr;
+
 			return ENTITY::DOES_ENTITY_EXIST(m_Handle);
+		}
 
 		if (m_Pointer)
 		{
