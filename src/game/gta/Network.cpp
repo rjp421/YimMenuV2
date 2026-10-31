@@ -95,29 +95,44 @@ namespace YimMenu::Network
 		if (!Pointers.GetAvatars)
 			return std::nullopt;
 
-		// these are probably too large to keep on the stack
-		auto results = std::make_unique<rage::rlGetAvatarsResults>();
-		auto players = std::make_unique<rage::rlGetAvatarsPlayerList>();
+		// Social Club keeps using the request after its status says done (it still fetches the avatars),
+		// so each request stays allocated for two minutes instead of living on this fiber's stack
+		struct Request
+		{
+			rage::rlGetAvatarsContext m_Context;
+			rage::rlGetAvatarsResults m_Results;
+			rage::rlGetAvatarsPlayerList m_Players;
+			std::chrono::steady_clock::time_point m_Started;
+		};
+		static std::vector<std::unique_ptr<Request>> requests;
+		auto now = std::chrono::steady_clock::now();
+		std::erase_if(requests, [now](const auto& request) {
+			return request->m_Context.m_Status.m_Status != 1 && now - request->m_Started > std::chrono::minutes(2);
+		});
 
-		rage::rlGetAvatarsContext context;
+		auto request = requests.emplace_back(std::make_unique<Request>()).get();
+		request->m_Started = now;
+		auto& context = request->m_Context;
+		auto& results = request->m_Results;
+		auto& players = request->m_Players;
 
-		strncpy(players->m_PlayerNames[0], name.data(), sizeof(players->m_PlayerNames[0]));
-		players->m_NumEntries = 1;
+		strncpy(players.m_PlayerNames[0], name.data(), sizeof(players.m_PlayerNames[0]));
+		players.m_NumEntries = 1;
 
 		context.m_Type = rage::rlGetAvatarsContext::Type::BY_NICKNAME;
 		context.m_AvatarSize = rage::rlGetAvatarsContext::AvatarSize::SMALL; // we don't need the avatars, but you gotta give it something
-		context.m_Result = results.get();
+		context.m_Result = &results;
 
-		if (Pointers.GetAvatars(&context, players.get()))
+		if (Pointers.GetAvatars(&context, &players))
 		{
 			while (context.m_Status.m_Status == 1)
 			{
 				ScriptMgr::Yield();
 			}
 
-			if (context.m_Status.m_Status == 3 && results->m_NumResults == 1)
+			if (context.m_Status.m_Status == 3 && results.m_NumResults == 1)
 			{
-				return results->m_Results[0].m_RockstarId;
+				return results.m_Results[0].m_RockstarId;
 			}
 		}
 
