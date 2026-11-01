@@ -290,7 +290,7 @@ namespace YimMenu
 		return reason.ends_with("on a player in animal form");
 	}
 
-	// legacy's spectate, super jump and spoofed crew infractions: each once per sender and key per game run, at most 300 in all
+	// legacy's spectate, max health and spoofed crew infractions: each once per sender and key per game run, at most 300 in all
 	static bool FirstTime(Player sender, std::string key)
 	{
 		static std::mutex mutex;
@@ -301,8 +301,10 @@ namespace YimMenu
 
 	static void ObservePlayerGameState(CPlayerGameStateDataNode* game_state, Player sender)
 	{
-		if (game_state->m_SuperJump && FirstTime(sender, "super jump"))
-			LOGF(WARNING, "Super jump flag (+0x1B9) from {} (legacy's infraction, log only)", sender.GetName());
+		// legacy's super jump infraction: freemode never calls the super jump native, so the flag comes from a menu. Strong, not
+		// certain: it isn't an attack, so it marks without the attack reactions
+		if (game_state->m_SuperJump)
+			Detections::Add(sender, DetectionLevel::Strong, "using super jump");
 
 		// legacy counts this as super jump too
 		if (!game_state->m_IsMaxArmorAndHealthDefault && game_state->m_MaxHealth == 0 && game_state->m_PlayerState == 1 && FirstTime(sender, "max health 0"))

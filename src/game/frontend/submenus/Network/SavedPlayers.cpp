@@ -166,6 +166,14 @@ namespace YimMenu::Submenus
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip("The message they see when refused");
 
+			// why the modder detection marked them (legacy's infractions)
+			if (!g_SelectedPlayer->m_Detections.empty())
+			{
+				ImGui::TextUnformatted("Detections");
+				for (auto& detection : g_SelectedPlayer->m_Detections)
+					ImGui::BulletText("%s", detection.c_str());
+			}
+
 			if (g_SelectedPlayer->m_FetchedData)
 			{
 				auto& data = *g_SelectedPlayer->m_FetchedData;
