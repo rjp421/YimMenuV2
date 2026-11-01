@@ -75,10 +75,10 @@ Every block adds points, by how sure it is that only a mod menu could send it:
 | Level | Points | Examples |
 |---|---|---|
 | Certain | 3 | crash, kick and session-breaking attacks |
-| Strong | 2 | godmode or invisible attackers |
+| Strong | 2 | godmode or invisible attackers, super jump |
 | Weak | 1 | bad entity data that isn't a known crash |
 
-A player is marked as a modder at 3 points. The same reason counts at most once every 10 seconds, and points are kept for the whole game session, so rejoining doesn't reset them. The kick and Block Join reactions only respond to Certain detections. The player list tooltip shows each player's detections. Lua scripts can add their own with `player:add_detection()` and read them with `player:get_detections()`.
+A player is marked as a modder at 3 points. The same reason counts at most once every 10 seconds, and points are kept for the whole game session, so rejoining doesn't reset them. The kick and Block Join reactions only respond to Certain detections. The player list tooltip shows each player's detections, and Network > Saved Players lists the saved reasons of a marked player. Lua scripts can add their own with `player:add_detection()` and read them with `player:get_detections()`.
 
 ### Diagnostics (Debug > Misc)
 
