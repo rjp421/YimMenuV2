@@ -468,8 +468,9 @@ namespace YimMenu::Hooks
 				if (rope_type == 0 || initial_length < min_length || max_length < min_length || max_length < 0.0f)
 				{
 					LOGF(WARNING, "Blocked SCRIPT_WORLD_STATE_EVENT of type Rope with invalid lengths from {}", player.GetName());
-					// strong, not certain: legacy's field layout of rope data isn't verified on enhanced
-					Detections::Add(player, DetectionLevel::Strong, "rope crash");
+					// certain so the attacker reactions fire: legacy's field layout of rope data isn't verified on
+					// enhanced, but every sender seen so far was attacking in other ways too
+					Detections::Add(player, DetectionLevel::Certain, "rope crash");
 					return false;
 				}
 			}

@@ -84,7 +84,7 @@ namespace YimMenu
 
 	static BoolCommand _BlockCages{"blockcages", "Block Cages", "Rejects the cage, container and tube objects that menus spawn around players to trap them", true};
 
-	// objects that menus spawn around a player to trap them; in the recorded traffic only attackers created them in freemode.
+	// objects that menus spawn around a player to trap them.
 	// Stunt races build their tracks from the tubes, so jobs are left alone
 	static const std::unordered_set<std::uint32_t> g_CageObjects = {
 	    "prop_gold_cont_01"_J,
@@ -93,9 +93,25 @@ namespace YimMenu
 	    "stt_prop_stunt_tube_xxs"_J,
 	    // names unknown, created together with the ones above
 	    0x2DB04373,
-	    0xA2023E64,
 	    0xAF9E03CD,
 	};
+
+	static constexpr std::size_t CAGE_BURST_OBJECTS = 5;
+	static constexpr auto CAGE_BURST_WINDOW = std::chrono::seconds(10);
+
+	// a cage moves to a new owner like any other object, and that owner's game keeps re-sending it while we refuse it, so holding
+	// one proves nothing. Spawning shows as a burst of different objects from one player
+	static bool IsCageBurst(Player sender, std::uint16_t object_id)
+	{
+		static std::array<std::unordered_map<std::uint16_t, std::chrono::steady_clock::time_point>, 256> recent_objects;
+		auto& objects = recent_objects[static_cast<std::uint8_t>(sender.GetId())];
+		auto now = std::chrono::steady_clock::now();
+		std::erase_if(objects, [now](const auto& object) {
+			return now - object.second > CAGE_BURST_WINDOW;
+		});
+		objects[object_id] = now;
+		return objects.size() >= CAGE_BURST_OBJECTS;
+	}
 
 	// the model natives only read the model info table, so they are safe to call from the network thread
 	static bool IsBadPedModel(std::uint32_t model)
@@ -744,7 +760,10 @@ namespace YimMenu
 				if (crash)
 					Detections::Add(sender, DetectionLevel::Certain, why);
 				else if (cage)
-					Detections::Add(sender, DetectionLevel::Strong, "spawning cage objects");
+				{
+					if (IsCageBurst(sender, static_cast<std::uint16_t>(object->m_ObjectId)))
+						Detections::Add(sender, DetectionLevel::Strong, "spawning cage objects");
+				}
 				else if (!IsUnverifiedCheck(why))
 					Detections::Add(sender, DetectionLevel::Weak, std::format("bad sync data: {}", why));
 				return true;
