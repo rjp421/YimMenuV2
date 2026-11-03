@@ -23,6 +23,7 @@
 #include "game/backend/ScriptPointers.hpp"
 #include "game/frontend/GUI.hpp"
 #include "game/pointers/Pointers.hpp"
+#include "game/features/players/help/PlayerHelp.hpp"
 #include "game/features/vehicle/SavePersonalVehicle.hpp"
 #include "game/features/self/OpenGunLocker.hpp"
 #include "game/features/recovery/DailyActivities.hpp"
@@ -80,6 +81,7 @@ namespace YimMenu
 		ScriptMgr::AddScript(std::make_unique<Script>(&Features::OpenGunLocker::RunScript));
 		ScriptMgr::AddScript(std::make_unique<Script>(&Features::OpenStreetDealerMenu::RunScript));
 		ScriptMgr::AddScript(std::make_unique<Script>(&SavedPlayers::RunScript));
+		ScriptMgr::AddScript(std::make_unique<Script>(&Features::PlayerHelp::RunScript));
 
 		if (!Pointers.LateInit())
 			LOG(WARNING) << "Socialclub patterns failed to load";

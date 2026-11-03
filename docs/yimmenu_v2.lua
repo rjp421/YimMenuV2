@@ -1035,6 +1035,50 @@ function Player:get_group() end
 function Player:set_visible_locally(visible) end
 ---@param pos Vector3
 function Player:teleport_to(pos) end
+
+function Player:give_health() end
+
+function Player:give_armor() end
+
+---old name of give_armor, kept for existing scripts
+function Player:give_armour() end
+
+function Player:give_ammo() end
+
+function Player:give_weapons() end
+
+function Player:fix_vehicle() end
+
+---@param reward integer|string
+function Player:give_pickup_reward(reward) end
+
+---@param enabled boolean
+function Player:set_semi_godmode(enabled) end
+
+---@return boolean
+function Player:is_semi_godmode() end
+
+---@param enabled boolean
+function Player:set_auto_fix_vehicle(enabled) end
+
+---@return boolean
+function Player:is_auto_fix_vehicle() end
+
+function Player:clear_wanted() end
+
+function Player:give_off_radar() end
+
+---@param enabled boolean
+function Player:set_never_wanted(enabled) end
+
+---@return boolean
+function Player:is_never_wanted() end
+
+---@param enabled boolean
+function Player:set_off_radar(enabled) end
+
+---@return boolean
+function Player:is_off_radar() end
 ---@param distance number
 function Player:set_fall_distance_override(distance) end
 ---@param ped Ped

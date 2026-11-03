@@ -715,6 +715,8 @@ World pool queries. Each returns an array of integer entity handles (wrap with `
 
 A session player. Construct with `Player(id)`.
 
+The help functions (`give_health` ... `give_pickup_reward`) use the game's pickup reward event, which the other player's game applies; they are queued and return at once. `clear_wanted` and `give_off_radar` are script events that freemode accepts from any player. The toggles (semi godmode, auto fix vehicle, never wanted, off radar) reset when a new player takes the slot.
+
 | Method | Description |
 | --- | --- |
 | `player:is_valid() -> boolean` | True if the slot is active. |
@@ -740,6 +742,17 @@ A session player. Construct with `Player(id)`.
 | `player:teleport_to(pos)` | Teleports the player. |
 | `player:set_fall_distance_override(distance)` | Overrides fall distance. |
 | `player:set_ped(ped, [delete_old])` | Sets the player's ped (delete old default true). |
+| `player:give_health()` / `player:give_armor()` | Refills their health / gives full armor (pickup reward). `give_armour` still works (old name). |
+| `player:give_ammo()` | Gives ammo for every weapon type (pickup rewards, takes about a second). |
+| `player:give_weapons()` | Gives them every weapon. |
+| `player:fix_vehicle()` | Repairs the vehicle they are in (pickup reward). |
+| `player:give_pickup_reward(reward)` | Sends one pickup reward by hash or name, e.g. `"REWARD_PARACHUTE"`. |
+| `player:set_semi_godmode(enabled)` / `player:is_semi_godmode() -> boolean` | Keeps refilling their health and armor (same as the Help menu toggle). |
+| `player:set_auto_fix_vehicle(enabled)` / `player:is_auto_fix_vehicle() -> boolean` | Keeps repairing their vehicle when damaged (same as the Help menu toggle). |
+| `player:clear_wanted()` | Clears their wanted level (script event). |
+| `player:give_off_radar()` | Hides them from the radar for a while, like the Lester call (script event). |
+| `player:set_never_wanted(enabled)` / `player:is_never_wanted() -> boolean` | Keeps clearing their wanted level (same as the Help menu toggle). |
+| `player:set_off_radar(enabled)` / `player:is_off_radar() -> boolean` | Keeps them off the radar (same as the Help menu toggle). |
 
 ---
 
