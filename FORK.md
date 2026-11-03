@@ -8,7 +8,7 @@ This is a fork of [YimMenuV2](https://github.com/YimMenu/YimMenuV2) for GTA V En
 |---|---|
 | `combined` | Every branch below merged together. Build this one to get everything. |
 | `enhanced` | An unchanged copy of upstream's `enhanced` branch. |
-| `feature/...`, `fix/...` | One change each, as a single commit on top of `enhanced`, so each can be read, built or merged on its own. The one exception is `feature/protections`, which builds on `feature/block-join`. |
+| `feature/...`, `fix/...` | One change each, as a single commit on top of `enhanced`, so each can be read, built or merged on its own. Two exceptions: `feature/protections` builds on `feature/block-join`, and `feature/gift-vehicle` builds on `feature/player-help`. |
 
 ### Features
 
@@ -18,7 +18,7 @@ This is a fork of [YimMenuV2](https://github.com/YimMenu/YimMenuV2) for GTA V En
 | `feature/block-join` | Block Join for a saved player, with the reason their game shows when the join is refused | Network > Saved Players |
 | `feature/saved-player-modder` | An Is Modder checkbox to mark or unmark a saved player by hand. It applies right away if they are in the session | Network > Saved Players |
 | `feature/player-help` | A Help category for the selected player. One-time actions: health, armor, ammo, weapons, fix vehicle, clear wanted level, off the radar. Toggles: Semi Godmode, Auto Fix Vehicle, Never Wanted, Off The Radar. Give Weapons moves here from Troll. All of it is in the Lua API too | Players > Help |
-| `feature/gift-vehicle` | Gift Vehicle: lets the player store the vehicle they are in, or the closest empty one, in their own garage. Street models only: vehicles that have to be bought, and personal vehicles, are refused | Players > Troll > Vehicle |
+| `feature/gift-vehicle` | Gift Vehicle: lets the player store the vehicle they are in, or the closest empty one, in their own garage. Street models only: vehicles that have to be bought, and personal vehicles, are refused | Players > Help > Vehicle |
 | `feature/log-backup` | The previous run's log is moved to `backup\cout_<date>_<time>.log` at startup instead of being overwritten, so the log of a crash survives the restart | |
 | `feature/debug-dumps` | Dump Game Module and Dump Native Handlers; Dump Bytecode (the selected script) and Dump All Loaded Scripts. Files go to the `dumps` folder, for offline analysis | Debug > Misc, Debug > Scripts |
 | `feature/log-self-reports` | Log Self Reports (off by default): logs each anticheat report our own game sends about us, and any native the menu calls that triggers one | Debug > Misc |
@@ -40,6 +40,8 @@ Several of these bugs are in upstream too.
 | `fix/resolve-rid-crash` | Adding a saved player by name could crash in `socialclub.dll` a moment later, because the request was freed while Social Club still used it. |
 | `fix/objective-teleport` | Teleport to Objective often went to another player, because player and objective blips look alike. Player blips are now skipped, and objective colors come first. |
 | `fix/socialclub-2.4.0.296` | Social Club 2.4.0.296 broke two `socialclub.dll` signatures, so adding or joining a player by name stopped working and the limit of 100 players per Saved Players request fell back to 32. The new signatures match both 2.4.0.296 and the previous version (upstream has the same bug: [#1178](https://github.com/YimMenu/YimMenuV2/issues/1178)). |
+| `fix/spectate-player-left` | Spectate stayed on after the spectated player left, so it started again on the next player selected. It now turns itself off. |
+| `fix/gui-settings-saved` | Settings > Customize lost most of its values on restart: layout, border and global values such as Global Alpha were saved but never applied, and font scale was never saved. All of them now come back at startup. |
 
 ## Protections and modder detection
 
