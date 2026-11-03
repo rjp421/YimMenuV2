@@ -483,7 +483,8 @@ namespace YimMenu
 			GetPresenceAttributes = ptr.As<Functions::GetPresenceAttributes>();
 		});
 
-		constexpr auto numHandlesPatchPtrn = Pattern<"83 FD 20 0F 87 54 02 00 00">("NumHandlesPatch");
+		// keep the register: with it wildcarded this also matches the attribute count check right after, and other functions
+		constexpr auto numHandlesPatchPtrn = Pattern<"83 FD 20 0F 87 ? ? ? ?">("NumHandlesPatch");
 		scanner.Add(numHandlesPatchPtrn, [this](PointerCalculator ptr) {
 			BytePatches::Add(ptr.Add(2).As<std::uint8_t*>(), 100)->Apply(); // change handle limit to 100
 		});
@@ -498,9 +499,10 @@ namespace YimMenu
 			BytePatches::Add(ptr.As<void*>(), std::to_array<std::uint8_t>({0xB0, 0x01}))->Apply();
 		});
 
-		constexpr auto getAvatarsPtrn = Pattern<"89 4B ? 48 8B CB E8 ? ? ? ? 84 C0">("GetAvatars");
+		// match the function itself: the registers at its call sites keep changing between Social Club builds
+		constexpr auto getAvatarsPtrn = Pattern<"48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 4C 8B FA 4C 8B F1 E8">("GetAvatars");
 		scanner.Add(getAvatarsPtrn, [this](PointerCalculator ptr) {
-			GetAvatars = ptr.Add(6).Add(1).Rip().As<Functions::GetAvatars>();
+			GetAvatars = ptr.As<Functions::GetAvatars>();
 		});
 
 		if (!scanner.Scan())
