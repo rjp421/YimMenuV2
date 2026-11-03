@@ -10,8 +10,28 @@ namespace YimMenu::Features
 
 		Player m_SpectatingPlayer{nullptr};
 
+		// looks only at the pointer: the old player object can be cleared or reused once they are gone
+		bool IsSpectatedPlayerGone()
+		{
+			if (!m_SpectatingPlayer.GetHandle())
+				return false;
+
+			for (auto& [idx, player] : Players::GetPlayers())
+				if (player == m_SpectatingPlayer)
+					return false;
+
+			return true;
+		}
+
 		virtual void OnTick() override
 		{
+			// turn off rather than move on to whoever gets selected next
+			if (IsSpectatedPlayerGone())
+			{
+				SetState(false);
+				return;
+			}
+
 			auto selected = Players::GetSelected();
 			if (selected != m_SpectatingPlayer)
 			{
@@ -32,6 +52,7 @@ namespace YimMenu::Features
 		{
 			NETWORK::NETWORK_SET_IN_SPECTATOR_MODE(false, 0);
 			HUD::SET_MINIMAP_IN_SPECTATOR_MODE(false, 0);
+			m_SpectatingPlayer = nullptr;
 		}
 	};
 
