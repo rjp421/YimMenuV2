@@ -19,7 +19,6 @@ namespace YimMenu::Submenus
 		bounty->AddItem(std::make_shared<PlayerCommandItem>("setbounty"_J));
 
 		vehicle->AddItem(std::make_shared<PlayerCommandItem>("deleteveh"_J));
-		vehicle->AddItem(std::make_shared<PlayerCommandItem>("giftveh"_J));
 
 		menu->AddItem(general);
 		menu->AddItem(bounty);

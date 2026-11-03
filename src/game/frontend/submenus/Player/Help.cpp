@@ -18,6 +18,7 @@ namespace YimMenu::Submenus
 		give->AddItem(std::make_shared<PlayerCommandItem>("giveweapons"_J));
 
 		vehicle->AddItem(std::make_shared<PlayerCommandItem>("fixplayerveh"_J));
+		vehicle->AddItem(std::make_shared<PlayerCommandItem>("giftveh"_J));
 
 		auto police = std::make_shared<Group>("Police and Radar");
 		police->AddItem(std::make_shared<PlayerCommandItem>("clearplayerwanted"_J));
