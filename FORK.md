@@ -39,6 +39,7 @@ Several of these bugs are in upstream too.
 | `fix/player-list-tags` | The player list, Players > Info and the ESP read other players' data from the drawing thread, which can crash. They now read it on the game thread. Also: no GOD tag inside interiors (the game makes everyone invincible there), players the game dropped without a leave are removed from the list, and the ESP can show player tags and health and armor bars. |
 | `fix/resolve-rid-crash` | Adding a saved player by name could crash in `socialclub.dll` a moment later, because the request was freed while Social Club still used it. |
 | `fix/objective-teleport` | Teleport to Objective often went to another player, because player and objective blips look alike. Player blips are now skipped, and objective colors come first. |
+| `fix/socialclub-2.4.0.296` | Social Club 2.4.0.296 broke two `socialclub.dll` signatures, so adding or joining a player by name stopped working and the limit of 100 players per Saved Players request fell back to 32. The new signatures match both 2.4.0.296 and the previous version (upstream has the same bug: [#1178](https://github.com/YimMenu/YimMenuV2/issues/1178)). |
 
 ## Protections and modder detection
 
