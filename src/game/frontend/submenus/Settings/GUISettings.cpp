@@ -11,6 +11,8 @@ namespace YimMenu
 	static std::unordered_map<std::string, float> g_RoundingValues;
 	static std::unordered_map<std::string, std::unique_ptr<FloatCommand>> g_FloatCommands; // Global map for all FloatCommands
 	static bool g_ColorInit = false, g_RoundingInit = false;
+	static constexpr auto kFontScaleKey = "FontGlobalScale";
+	static constexpr float kFontScaleMin = 0.5f, kFontScaleMax = 2.0f;
 
 	static const std::string kSettingsFile = [] {
 		char* path = nullptr;
@@ -71,13 +73,80 @@ namespace YimMenu
 				s.TabRounding = v;
 	}
 
+	using StyleFloatFn = void (*)(const std::string& name, float& value, float min, float max);
+
+	static void VisitStyleVec2(StyleFloatFn fn, const char* label, ImVec2& value, float min, float max)
+	{
+		fn(std::string(label) + "_X", value.x, min, max);
+		fn(std::string(label) + "_Y", value.y, min, max);
+	}
+
+	static void VisitLayoutFloats(StyleFloatFn fn)
+	{
+		auto& s = ImGui::GetStyle();
+		VisitStyleVec2(fn, "WindowPadding", s.WindowPadding, 0.f, 32.f);
+		VisitStyleVec2(fn, "ItemSpacing", s.ItemSpacing, 0.f, 32.f);
+		VisitStyleVec2(fn, "ItemInnerSpacing", s.ItemInnerSpacing, 0.f, 32.f);
+		VisitStyleVec2(fn, "TouchExtraPadding", s.TouchExtraPadding, 0.f, 32.f);
+		VisitStyleVec2(fn, "DisplaySafeAreaPadding", s.DisplaySafeAreaPadding, 0.f, 32.f);
+
+		fn("IndentSpacing", s.IndentSpacing, 0.f, 64.f);
+		fn("ColumnsMinSpacing", s.ColumnsMinSpacing, 0.f, 64.f);
+
+		VisitStyleVec2(fn, "WindowTitleAlign", s.WindowTitleAlign, 0.f, 1.f);
+		VisitStyleVec2(fn, "ButtonTextAlign", s.ButtonTextAlign, 0.f, 1.f);
+		VisitStyleVec2(fn, "SelectableTextAlign", s.SelectableTextAlign, 0.f, 1.f);
+	}
+
+	static void VisitBorderFloats(StyleFloatFn fn)
+	{
+		auto& s = ImGui::GetStyle();
+		fn("WindowBorderSize", s.WindowBorderSize, 0.f, 8.f);
+		fn("FrameBorderSize", s.FrameBorderSize, 0.f, 8.f);
+		fn("TabBorderSize", s.TabBorderSize, 0.f, 8.f);
+		fn("PopupBorderSize", s.PopupBorderSize, 0.f, 8.f);
+	}
+
+	static void VisitGlobalFloats(StyleFloatFn fn)
+	{
+		auto& s = ImGui::GetStyle();
+		fn("GlobalAlpha", s.Alpha, 0.1f, 1.f);
+		fn("DisabledAlpha", s.DisabledAlpha, 0.f, 1.f);
+		fn("MouseCursorScale", s.MouseCursorScale, 0.5f, 2.f);
+		fn("CurveTessellationTol", s.CurveTessellationTol, 0.1f, 10.f);
+	}
+
+	static void VisitAllFloats(StyleFloatFn fn)
+	{
+		VisitLayoutFloats(fn);
+		VisitBorderFloats(fn);
+		VisitGlobalFloats(fn);
+		fn(kFontScaleKey, ImGui::GetIO().FontGlobalScale, kFontScaleMin, kFontScaleMax);
+	}
+
+	static void CreateStyleFloat(const std::string& name, float& value, float min, float max)
+	{
+		g_FloatCommands[name] = std::make_unique<FloatCommand>(name, name, "Adjust " + name, min, max, value);
+	}
+
+	// clamped because an out of range value in the file could leave the menu invisible or unusable, with no way to fix it in game
+	static void ApplyStyleFloat(const std::string& name, float& value, float min, float max)
+	{
+		value = std::clamp(g_FloatCommands[name]->GetState(), min, max);
+	}
+
 	static void LoadSettings()
 	{
 		if (!std::filesystem::exists(kSettingsFile))
 			return;
 		std::ifstream file(kSettingsFile);
-		nlohmann::json json;
-		file >> json;
+		// a crash during a save can leave the file cut short
+		auto json = nlohmann::json::parse(file, nullptr, false);
+		if (json.is_discarded())
+		{
+			LOG(WARNING) << "Couldn't read themes.json, using the default style";
+			return;
+		}
 
 		// Load colors
 		for (int i = 0; i < ImGuiCol_COUNT; ++i)
@@ -136,6 +205,8 @@ namespace YimMenu
 		style.ChildRounding = g_RoundingValues["ChildRounding"];
 		style.PopupRounding = g_RoundingValues["PopupRounding"];
 		style.TabRounding = g_RoundingValues["TabRounding"];
+
+		VisitAllFloats(ApplyStyleFloat);
 	}
 
 
@@ -164,49 +235,20 @@ namespace YimMenu
 			    {"TabRounding", style.TabRounding}};
 		}
 
+		// made here, not when a tab is first drawn: loading and saving only see commands that exist, so values on
+		// tabs not opened yet were never applied and were dropped from the file by the next save
+		VisitAllFloats(CreateStyleFloat);
+
 		LoadSettings();
 		SyncColorCommandsToStyle();
 		SyncRoundingToStyle();
 		g_ColorInit = true;
 	}
 
-	static void DrawStyleVec2(const char* label, float& x, float& y, float min, float max)
+	static void DrawStyleFloat(const std::string& name, float& v, float min, float max)
 	{
-		std::string nameX = std::string(label) + "_X";
-		std::string nameY = std::string(label) + "_Y";
-
-		// Use global float commands map
-		if (!g_FloatCommands.count(nameX))
-			g_FloatCommands[nameX] = std::make_unique<FloatCommand>(nameX.c_str(), nameX.c_str(), "Adjust " + nameX, min, max, x);
-		if (!g_FloatCommands.count(nameY))
-			g_FloatCommands[nameY] = std::make_unique<FloatCommand>(nameY.c_str(), nameY.c_str(), "Adjust " + nameY, min, max, y);
-
-		float newX = g_FloatCommands[nameX]->GetState();
-		float newY = g_FloatCommands[nameY]->GetState();
-
-		bool changed = false;
-		changed |= ImGui::SliderFloat(PrettyPrintLabel(nameX).c_str(), &newX, min, max, "%.1f");
-		changed |= ImGui::SliderFloat(PrettyPrintLabel(nameY).c_str(), &newY, min, max, "%.1f");
-
-		if (changed)
-		{
-			g_FloatCommands[nameX]->SetState(newX);
-			g_FloatCommands[nameY]->SetState(newY);
-			x = newX;
-			y = newY;
-			SaveSettings();
-		}
-	}
-
-	static void DrawStyleFloat(const char* label, float& v, float min, float max)
-	{
-		std::string name(label);
-
-		if (!g_FloatCommands.count(name))
-			g_FloatCommands[name] = std::make_unique<FloatCommand>(name.c_str(), name.c_str(), "Adjust " + name, min, max, v);
-
-		float newVal = g_FloatCommands[name]->GetState();
-		if (ImGui::SliderFloat(PrettyPrintLabel(name).c_str(), &newVal, min, max, "%.1f"))
+		float newVal = v;
+		if (ImGui::SliderFloat(PrettyPrintLabel(name).c_str(), &newVal, min, max, "%.1f", ImGuiSliderFlags_AlwaysClamp))
 		{
 			g_FloatCommands[name]->SetState(newVal);
 			v = newVal;
@@ -255,43 +297,23 @@ namespace YimMenu
 
 	static void DrawLayoutTab()
 	{
-		auto& s = ImGui::GetStyle();
 		ImGui::Text("Layout & Alignment:");
 		ImGui::Separator();
-		DrawStyleVec2("WindowPadding", s.WindowPadding.x, s.WindowPadding.y, 0.f, 32.f);
-		DrawStyleVec2("ItemSpacing", s.ItemSpacing.x, s.ItemSpacing.y, 0.f, 32.f);
-		DrawStyleVec2("ItemInnerSpacing", s.ItemInnerSpacing.x, s.ItemInnerSpacing.y, 0.f, 32.f);
-		DrawStyleVec2("TouchExtraPadding", s.TouchExtraPadding.x, s.TouchExtraPadding.y, 0.f, 32.f);
-		DrawStyleVec2("DisplaySafeAreaPadding", s.DisplaySafeAreaPadding.x, s.DisplaySafeAreaPadding.y, 0.f, 32.f);
-
-		DrawStyleFloat("IndentSpacing", s.IndentSpacing, 0.f, 64.f);
-		DrawStyleFloat("ColumnsMinSpacing", s.ColumnsMinSpacing, 0.f, 64.f);
-
-		DrawStyleVec2("WindowTitleAlign", s.WindowTitleAlign.x, s.WindowTitleAlign.y, 0.f, 1.f);
-		DrawStyleVec2("ButtonTextAlign", s.ButtonTextAlign.x, s.ButtonTextAlign.y, 0.f, 1.f);
-		DrawStyleVec2("SelectableTextAlign", s.SelectableTextAlign.x, s.SelectableTextAlign.y, 0.f, 1.f);
+		VisitLayoutFloats(DrawStyleFloat);
 	}
 
 	static void DrawBorderTab()
 	{
-		auto& s = ImGui::GetStyle();
 		ImGui::Text("Border Sizes:");
 		ImGui::Separator();
-		DrawStyleFloat("WindowBorderSize", s.WindowBorderSize, 0.f, 8.f);
-		DrawStyleFloat("FrameBorderSize", s.FrameBorderSize, 0.f, 8.f);
-		DrawStyleFloat("TabBorderSize", s.TabBorderSize, 0.f, 8.f);
-		DrawStyleFloat("PopupBorderSize", s.PopupBorderSize, 0.f, 8.f);
+		VisitBorderFloats(DrawStyleFloat);
 	}
 
 	static void DrawGlobalTab()
 	{
-		auto& s = ImGui::GetStyle();
 		ImGui::Text("Global Settings:");
 		ImGui::Separator();
-		DrawStyleFloat("GlobalAlpha", s.Alpha, 0.1f, 1.f);
-		DrawStyleFloat("DisabledAlpha", s.DisabledAlpha, 0.f, 1.f);
-		DrawStyleFloat("MouseCursorScale", s.MouseCursorScale, 0.5f, 2.f);
-		DrawStyleFloat("CurveTessellationTol", s.CurveTessellationTol, 0.1f, 10.f);
+		VisitGlobalFloats(DrawStyleFloat);
 	}
 
 	static void DrawFontTab()
@@ -301,9 +323,13 @@ namespace YimMenu
 		ImGui::Text("Font Configuration:");
 		ImGui::Separator();
 		ImGui::Text("Current Scale: %.2f", io.FontGlobalScale);
-		ImGui::SliderFloat("Font Scale", &scale, 0.5f, 2.0f, "%.2f");
+		ImGui::SliderFloat("Font Scale", &scale, kFontScaleMin, kFontScaleMax, "%.2f", ImGuiSliderFlags_AlwaysClamp);
 		if (ImGui::Button("Apply Font Scale"))
+		{
 			io.FontGlobalScale = scale;
+			g_FloatCommands[kFontScaleKey]->SetState(scale);
+			SaveSettings();
+		}
 	}
 
 	std::shared_ptr<Category> DrawGUISettingsMenu()
