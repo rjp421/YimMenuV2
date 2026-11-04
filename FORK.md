@@ -8,7 +8,7 @@ This is a fork of [YimMenuV2](https://github.com/YimMenu/YimMenuV2) for GTA V En
 |---|---|
 | `combined` | Every branch below merged together. Build this one to get everything. |
 | `enhanced` | An unchanged copy of upstream's `enhanced` branch. |
-| `feature/...`, `fix/...` | One change each, as a single commit on top of `enhanced`, so each can be read, built or merged on its own. Two exceptions: `feature/protections` builds on `feature/block-join`, and `feature/gift-vehicle` builds on `feature/player-help`. |
+| `feature/...`, `fix/...` | One change each, as a single commit on top of `enhanced`, so each can be read, built or merged on its own. Some build on another branch: `feature/protections` on `feature/block-join`, `feature/player-more-info` on `feature/lua-language`, and `feature/gift-vehicle`, `feature/session-help` and `feature/troll-options` on `feature/player-help`. |
 
 ### Features
 
@@ -19,6 +19,10 @@ This is a fork of [YimMenuV2](https://github.com/YimMenu/YimMenuV2) for GTA V En
 | `feature/saved-player-modder` | An Is Modder checkbox to mark or unmark a saved player by hand. It applies right away if they are in the session | Network > Saved Players |
 | `feature/player-help` | A Help category for the selected player. One-time actions: health, armor, ammo, weapons, fix vehicle, clear wanted level, off the radar. Toggles: Semi Godmode, Auto Fix Vehicle, Never Wanted, Off The Radar. Give Weapons moves here from Troll. All of it is in the Lua API too | Players > Help |
 | `feature/gift-vehicle` | Gift Vehicle: lets the player store the vehicle they are in, or the closest empty one, in their own garage. Street models only: vehicles that have to be bought, and personal vehicles, are refused | Players > Help > Vehicle |
+| `feature/session-help` | Semi Godmode, Auto Fix Vehicles, Never Wanted and Off The Radar for everyone in the session except you | Network > Session > Misc |
+| `feature/teleport-into-vehicle` | Teleport Into Vehicle: puts you in the selected player's vehicle, in the driver's seat if it is free | Players > Info > Teleport |
+| `feature/player-more-info` | More Info also shows language, CEO and MC names, wallet, bank, total money, rank, K/D, kills, deaths, other stats, NAT type and host token | Players > Info > More Info |
+| `feature/troll-options` | Ragdoll, Remove Weapons, Set Wanted, and vehicle options: Kick From Vehicle, Kill Engine, Burst Tires, Smash Windows, Stop, Boost, Launch, Flip 180, Open and Close Doors, Lock and Unlock. **Known issues:** Flip 180 snaps back to the way the vehicle was facing, and upstream's Delete Vehicle, in the same section, doesn't work | Players > Troll |
 | `feature/log-backup` | The previous run's log is moved to `backup\cout_<date>_<time>.log` at startup instead of being overwritten, so the log of a crash survives the restart | |
 | `feature/debug-dumps` | Dump Game Module and Dump Native Handlers; Dump Bytecode (the selected script) and Dump All Loaded Scripts. Files go to the `dumps` folder, for offline analysis | Debug > Misc, Debug > Scripts |
 | `feature/log-self-reports` | Log Self Reports (off by default): logs each anticheat report our own game sends about us, and any native the menu calls that triggers one | Debug > Misc |
