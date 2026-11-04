@@ -163,16 +163,14 @@ namespace YimMenu::Submenus
 		tpToInterior->AddItem(std::make_shared<PlayerCommandItem>("sendtointerior"_J));
 		teleportGroup->AddItem(tpToProperty);
 		teleportGroup->AddItem(tpToInterior);
-		teleportGroup->AddItem(std::make_shared<PlayerCommandItem>("tptoplayer"_J, "Teleport To"));
+		auto tpToPlayer = std::make_shared<Group>("", 1);
+		tpToPlayer->AddItem(std::make_shared<PlayerCommandItem>("tptoplayer"_J, "Teleport To"));
+		tpToPlayer->AddItem(std::make_shared<PlayerCommandItem>("tpintoveh"_J));
+		teleportGroup->AddItem(tpToPlayer);
 		teleportGroup->AddItem(std::make_shared<PlayerCommandItem>("bring"_J));
 		teleportGroup->AddItem(customPlayerTp);
 
 		menu->AddItem(teleportGroup);
-
-		auto vehicleGroup = std::make_shared<Group>("Vehicle");
-		vehicleGroup->AddItem(std::make_shared<PlayerCommandItem>("tpintoveh"_J));
-
-		menu->AddItem(vehicleGroup);
 
 		return menu;
 	}
