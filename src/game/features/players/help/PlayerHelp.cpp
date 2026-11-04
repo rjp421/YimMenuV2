@@ -1,5 +1,6 @@
 #include "PlayerHelp.hpp"
 #include "core/backend/ScriptMgr.hpp"
+#include "core/commands/BoolCommand.hpp"
 #include "game/backend/PlayerData.hpp"
 #include "game/backend/Players.hpp"
 #include "game/gta/Natives.hpp"
@@ -120,31 +121,48 @@ namespace YimMenu::Features
 		    || VEHICLE::GET_VEHICLE_PETROL_TANK_HEALTH(vehicle) < 1000.0f;
 	}
 
+	// the same help as the per-player toggles, for everyone in the session except us
+	static BoolCommand _SemiGodmodeAll{"semigodmodeall", "Semi Godmode (All)", "Refills everyone's health and armor when they drop. A big hit can still kill them"};
+	static BoolCommand _AutoFixVehicleAll{"autofixvehicleall", "Auto Fix Vehicles (All)", "Repairs everyone's vehicle when it is damaged"};
+	static BoolCommand _NeverWantedAll{"neverwantedall", "Never Wanted (All)", "Clears everyone's wanted level when they get one"};
+	static BoolCommand _OffRadarAll{"offradarall", "Off The Radar (All)", "Keeps everyone off the radar. Some menus flag this as griefing"};
+
 	// sends a reward only when it is needed, at most every 250 ms
 	void PlayerHelp::RunScript()
 	{
 		while (g_Running)
 		{
+			// one reward event can target several players, so a whole session needs at most one of each per pass
+			int healthBits = 0, armorBits = 0, fixBits = 0;
+			// script events go to one player at a time, so a whole session is spread over several passes
+			int scriptEventsLeft = 4;
+
 			for (auto& [id, player] : Players::GetPlayers())
 			{
 				if (!player.IsValid() || player.IsLocal())
 					continue;
 
 				auto& data = player.GetData();
-				if (!data.m_SemiGodmode && !data.m_AutoFixVehicle && !data.m_NeverWanted && !data.m_OffRadar)
+				const bool semiGodmode = data.m_SemiGodmode || _SemiGodmodeAll.GetState();
+				const bool autoFixVehicle = data.m_AutoFixVehicle || _AutoFixVehicleAll.GetState();
+				const bool neverWanted = data.m_NeverWanted || _NeverWantedAll.GetState();
+				const bool offRadar = data.m_OffRadar || _OffRadarAll.GetState();
+				if (!semiGodmode && !autoFixVehicle && !neverWanted && !offRadar)
 					continue;
 
 				// script events: at most one per second (never wanted) / 20 seconds (off the radar, which lasts longer) per player
 				auto now = std::chrono::steady_clock::now();
-				if (data.m_NeverWanted && player.GetWantedLevel() > 0 && now - data.m_LastClearWanted > 1s)
+				if (neverWanted && scriptEventsLeft > 0 && player.GetWantedLevel() > 0 && now - data.m_LastClearWanted > 1s)
 				{
 					data.m_LastClearWanted = now;
 					ClearWanted(1 << player.GetId());
+					scriptEventsLeft--;
 				}
-				if (data.m_OffRadar && now - data.m_LastOffRadar > 20s)
+				if (offRadar && scriptEventsLeft > 0 && now - data.m_LastOffRadar > 20s)
 				{
 					data.m_LastOffRadar = now;
 					GiveOffRadar(1 << player.GetId());
+					scriptEventsLeft--;
 				}
 
 				auto ped = player.GetPed();
@@ -152,21 +170,25 @@ namespace YimMenu::Features
 					continue;
 
 				int bits = 1 << player.GetId();
-				if (data.m_SemiGodmode && ped.GetMaxHealth() > 0)
+				if (semiGodmode && ped.GetMaxHealth() > 0)
 				{
 					if (ped.GetHealth() < ped.GetMaxHealth())
-						GiveReward(bits, "REWARD_HEALTH"_J);
+						healthBits |= bits;
 					if (ped.GetArmour() < 50)
-						GiveReward(bits, "REWARD_ARMOUR"_J);
+						armorBits |= bits;
 				}
 
-				if (data.m_AutoFixVehicle)
+				if (autoFixVehicle)
 				{
 					auto vehicle = ped.GetVehicle();
 					if (vehicle && IsVehicleDamaged(vehicle.GetHandle()))
-						GiveReward(bits, "REWARD_VEHICLE_FIX"_J);
+						fixBits |= bits;
 				}
 			}
+
+			GiveReward(healthBits, "REWARD_HEALTH"_J);
+			GiveReward(armorBits, "REWARD_ARMOUR"_J);
+			GiveReward(fixBits, "REWARD_VEHICLE_FIX"_J);
 
 			ScriptMgr::Yield(250ms);
 		}
