@@ -86,6 +86,10 @@ namespace YimMenu::Submenus
 		toxicGroup->AddItem(std::make_shared<CommandItem>("hkickall"_J, "Host Kick All"));
 
 		miscGroup->AddItem(std::make_shared<BoolCommandItem>("forcethunder"_J));
+		miscGroup->AddItem(std::make_shared<BoolCommandItem>("semigodmodeall"_J));
+		miscGroup->AddItem(std::make_shared<BoolCommandItem>("autofixvehicleall"_J));
+		miscGroup->AddItem(std::make_shared<BoolCommandItem>("neverwantedall"_J));
+		miscGroup->AddItem(std::make_shared<BoolCommandItem>("offradarall"_J));
 
 		enhancements->AddItem(std::make_shared<BoolCommandItem>("notifyonplayerjoin"_J));
 		enhancements->AddItem(std::make_shared<BoolCommandItem>("fastjoin"_J));
