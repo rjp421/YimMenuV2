@@ -169,6 +169,11 @@ namespace YimMenu::Submenus
 
 		menu->AddItem(teleportGroup);
 
+		auto vehicleGroup = std::make_shared<Group>("Vehicle");
+		vehicleGroup->AddItem(std::make_shared<PlayerCommandItem>("tpintoveh"_J));
+
+		menu->AddItem(vehicleGroup);
+
 		return menu;
 	}
 }
