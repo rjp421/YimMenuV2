@@ -8,6 +8,8 @@
 #include "game/gta/Natives.hpp"
 #include "types/network/CNetGamePlayer.hpp"
 #include "types/network/rlGamerInfo.hpp"
+#include "types/script/globals/GPBD_FM.hpp"
+#include "types/script/globals/GPBD_FM_3.hpp"
 
 namespace YimMenu::Submenus
 {
@@ -16,6 +18,82 @@ namespace YimMenu::Submenus
 		std::ostringstream oss;
 		oss << field1 << '.' << field2 << '.' << field3 << '.' << field4;
 		return oss.str();
+	}
+
+	static const char* GetNatTypeName(std::uint32_t type)
+	{
+		switch (type)
+		{
+		case 1: return "Open";
+		case 2: return "Moderate";
+		case 3: return "Strict";
+		}
+
+		return "Unknown";
+	}
+
+	// each player's game fills in their own text, so it may not end where it should
+	template<int SIZE>
+	static std::string ReadLabel(const SCR_TEXT_LABEL<SIZE>& label)
+	{
+		return std::string(label.Data, strnlen(label.Data, SIZE));
+	}
+
+	static void DrawNameLine(const char* title, const std::string& name)
+	{
+		ImGui::Text("%s: %s", title, name.empty() ? "None" : name.c_str());
+	}
+
+	static void DrawScriptInfo(Player player)
+	{
+		int id = player.GetId();
+
+		ImGui::Text("Language: %s", player.GetLanguageName());
+
+		if (auto fm3 = GPBD_FM_3::Get())
+		{
+			auto& bossGoon = fm3->Entries[id].BossGoon;
+			DrawNameLine("CEO Name", ReadLabel(bossGoon.GangName));
+
+			// legacy reads ClubhouseName, which the struct marks as possibly unused
+			auto mcName = ReadLabel(bossGoon.MCName);
+			DrawNameLine("MC Name", mcName.empty() ? ReadLabel(bossGoon.ClubhouseName) : mcName);
+		}
+
+		if (auto fm = GPBD_FM::Get())
+		{
+			auto& entry = fm->Entries[id];
+			auto& stats = entry.PlayerStats;
+
+			ImGui::Text("Wallet: %d", stats.WalletBalance);
+			ImGui::Text("Bank: %d", stats.Money - stats.WalletBalance);
+			ImGui::Text("Total Money: %d", stats.Money);
+			ImGui::Text("Rank: %d (%d RP)", stats.Rank, stats.RP);
+			ImGui::Text("K/D Ratio: %.2f", stats.KdRatio);
+			ImGui::Text("Kills On Players: %d", stats.KillsOnPlayers);
+			ImGui::Text("Deaths By Players: %d", stats.DeathsByPlayers);
+			ImGui::Text("Prostitutes Frequented: %d", stats.ProstitutesFrequented);
+			ImGui::Text("Lap Dances Bought: %d", stats.LapDancesBought);
+			ImGui::Text("Missions Created: %d", stats.MissionsCreated);
+			ImGui::Text("Meltdown Complete: %s", entry.MeltdownComplete ? "Yes" : "No");
+		}
+	}
+
+	static void DrawNetworkInfo(Player player)
+	{
+		ImGui::Text("Average Latency: %.2f", player.GetAverageLatency());
+		ImGui::Text("Packet Loss: %.2f", player.GetAveragePacketLoss());
+
+		if (auto gamerInfo = player.GetGamerInfo())
+		{
+			ImGui::Text("NAT Type: %s", GetNatTypeName(gamerInfo->m_NatType));
+
+			auto hostToken = std::format("{:X}", gamerInfo->m_HostToken);
+			ImGui::Text("Host Token:");
+			ImGui::SameLine();
+			if (ImGui::SmallButton(hostToken.c_str()))
+				ImGui::SetClipboardText(hostToken.c_str());
+		}
 	}
 
 	std::shared_ptr<Category> BuildInfoMenu()
@@ -131,8 +209,15 @@ namespace YimMenu::Submenus
 				ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 				if (ImGui::BeginPopupModal("More Info", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_Modal | ImGuiWindowFlags_AlwaysAutoResize))
 				{
-					ImGui::Text("Average Latency: %.2f", Players::GetSelected().GetAverageLatency());
-					ImGui::Text("Packet Loss: %.2f", Players::GetSelected().GetAveragePacketLoss());
+					ImGui::BeginGroup();
+					DrawScriptInfo(Players::GetSelected());
+					ImGui::EndGroup();
+
+					ImGui::SameLine(0.0f, 30.0f);
+
+					ImGui::BeginGroup();
+					DrawNetworkInfo(Players::GetSelected());
+					ImGui::EndGroup();
 
 					ImGui::Spacing();
 
