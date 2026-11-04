@@ -6,7 +6,6 @@
 #include "game/gta/Natives.hpp"
 #include "game/gta/data/Weapons.hpp"
 #include "game/pointers/Pointers.hpp"
-#include "types/network/CNetGamePlayer.hpp"
 #include "types/script/ScriptEvent.hpp"
 #include "types/script/globals/GPBD_FM_3.hpp"
 
@@ -128,43 +127,6 @@ namespace YimMenu::Features
 	static BoolCommand _NeverWantedAll{"neverwantedall", "Never Wanted (All)", "Clears everyone's wanted level when they get one"};
 	static BoolCommand _OffRadarAll{"offradarall", "Off The Radar (All)", "Keeps everyone off the radar. Some menus flag this as griefing"};
 
-	// temporary: finds which source knows another player's wanted level. Logs when a source changes, at most once a second per player
-	static void LogWantedSources(Player player)
-	{
-		static std::array<std::string, 32> lastLine;
-		static std::array<std::chrono::steady_clock::time_point, 32> lastCheck;
-
-		int id = player.GetId();
-		auto now = std::chrono::steady_clock::now();
-		if (id < 0 || id >= 32 || now - lastCheck[id] < 1s)
-			return;
-		lastCheck[id] = now;
-
-		auto info = reinterpret_cast<const char*>(player.GetHandle()->m_PlayerInfo);
-		if (!info)
-			return;
-
-		auto raw = [info](int offset) {
-			return *reinterpret_cast<const int*>(info + offset);
-		};
-
-		auto line = std::format("native {}, above zero {}, fake {}, raw 8E0={} 8E4={} 8E8={} 8EC={}, spectating {}",
-		    player.GetWantedLevel(),
-		    PLAYER::IS_PLAYER_WANTED_LEVEL_GREATER(id, 0) != 0,
-		    PLAYER::GET_PLAYER_FAKE_WANTED_LEVEL(id),
-		    raw(0x8E0),
-		    raw(0x8E4),
-		    raw(0x8E8),
-		    raw(0x8EC),
-		    NETWORK::NETWORK_IS_IN_SPECTATOR_MODE() != 0);
-
-		if (line != lastLine[id])
-		{
-			lastLine[id] = line;
-			LOG(INFO) << "Wanted sources for " << player.GetName() << ": " << line;
-		}
-	}
-
 	// sends a reward only when it is needed, at most every 250 ms
 	void PlayerHelp::RunScript()
 	{
@@ -190,11 +152,8 @@ namespace YimMenu::Features
 
 				// script events: at most one per second (never wanted) / 20 seconds (off the radar, which lasts longer) per player
 				auto now = std::chrono::steady_clock::now();
-				if (neverWanted)
-					LogWantedSources(player);
 				if (neverWanted && scriptEventsLeft > 0 && player.GetWantedLevel() > 0 && now - data.m_LastClearWanted > 1s)
 				{
-					LOG(INFO) << "Never Wanted: sending clear wanted level to " << player.GetName();
 					data.m_LastClearWanted = now;
 					ClearWanted(1 << player.GetId());
 					scriptEventsLeft--;
