@@ -230,7 +230,8 @@ namespace YimMenu
 		rage::datBitBuffer remove_buf(buf, sizeof(buf));
 		int msgs_written = 0;
 
-		if (ownership_token == -1)
+		// the game only accepts a remove from a non-owner when its token is newer than the object's
+		if (ownership_token != -1)
 		{
 			remove_buf.Write<std::uint16_t>(network_id, 13);
 			remove_buf.Write<int>(GetNextTokenValue(ownership_token), 5);
