@@ -175,6 +175,18 @@ namespace YimMenu
 			GivePickupRewards = ptr.Sub(0x6E).As<Functions::GivePickupRewards>();
 		});
 
+		// sends ALTER_WANTED_LEVEL_EVENT (legacy's set_wanted_level). The event has a second sender: this one sets the flag at +0x38 and stores a level
+		constexpr auto setWantedLevelPtrn = Pattern<"66 BA 16 00 45 31 C0 41 B1 01 E8 ? ? ? ? 48 8D 05 ? ? ? ? 48 89 45 00 48 89 5D 30 C6 45 38 01">("SetWantedLevel");
+		scanner.Add(setWantedLevelPtrn, [this](PointerCalculator ptr) {
+			SetWantedLevel = ptr.Sub(0x104).As<Functions::SetWantedLevel>();
+		});
+
+		// sends RAGDOLL_REQUEST_EVENT (legacy's request_ragdoll)
+		constexpr auto requestRagdollPtrn = Pattern<"66 BA 18 00 45 31 C0 45 31 C9 E8 ? ? ? ? 48 8D 05 ? ? ? ? 48 89 07 66 89 77 30 C6 47 32 00">("RequestRagdoll");
+		scanner.Add(requestRagdollPtrn, [this](PointerCalculator ptr) {
+			RequestRagdoll = ptr.Sub(0x6E).As<Functions::RequestRagdoll>();
+		});
+
 		constexpr auto requestControlPtrn = Pattern<"74 0A 48 89 F9 E8 ? ? ? ? 31 F6 89 F0 48 83 C4 20">("RequestControl");
 		scanner.Add(requestControlPtrn, [this](PointerCalculator ptr) {
 			RequestControl = ptr.Add(5).Add(1).Rip().As<Functions::RequestControl>();

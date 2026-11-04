@@ -59,6 +59,8 @@ namespace YimMenu
 		using GetNetObjectById = rage::netObject* (*)(uint16_t id);
 		using RequestControl = void (*)(rage::netObject* object);
 		using GivePickupRewards = void (*)(int player_bits, std::uint32_t reward); // sends GIVE_PICKUP_REWARDS_EVENT
+		using SetWantedLevel = void (*)(CNetGamePlayer* player, int level, int delay, std::uint8_t caused_by); // sends ALTER_WANTED_LEVEL_EVENT
+		using RequestRagdoll = void (*)(std::uint16_t object_id); // sends RAGDOLL_REQUEST_EVENT
 		using EventAck = bool (*)(uintptr_t data, CNetGamePlayer* target_player, uint32_t event_index, uint32_t event_handled_bitset);
 		using SendEventAck = void (*)(rage::netEventMgr* event_manager, CNetGamePlayer* source_player);
 		using ScriptVM = int (*)(uint64_t* stack, int64_t** scr_globals, rage::scrProgram* program, void* ctx);
@@ -107,6 +109,8 @@ namespace YimMenu
 		Functions::QueuePacket QueuePacket;
 		Functions::GetNetObjectById GetNetObjectById;
 		Functions::GivePickupRewards GivePickupRewards;
+		Functions::SetWantedLevel SetWantedLevel;
+		Functions::RequestRagdoll RequestRagdoll;
 		Functions::RequestControl RequestControl;
 		BytePatch ModelSpawnBypass;
 		BytePatch SpectatePatch; // used to patch the code that prevents you from spawning network objects when spectating
