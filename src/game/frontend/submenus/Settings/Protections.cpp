@@ -32,6 +32,7 @@ namespace YimMenu::Submenus
 	    {"blocktrafficmanipulation"_J, true},
 	    {"blockbadsyncdata"_J, true},
 	    {"blockcages"_J, true},
+	    {"blockinjectedexplosions"_J, true},
 	};
 
 	static void SetAll(std::optional<bool> state)
