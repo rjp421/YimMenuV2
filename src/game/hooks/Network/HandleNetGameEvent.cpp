@@ -266,6 +266,30 @@ namespace YimMenu::Hooks
 		return false;
 	}
 
+	// a flood of these would fill the log, so write at most one line per 10 seconds per player, with the number left out since the last line
+	static void LogBlockedWeaponRemoval(Player player, std::uint32_t weapon)
+	{
+		struct State
+		{
+			std::chrono::steady_clock::time_point m_LastLog{};
+			int m_Skipped = 0;
+		};
+
+		static std::array<State, 256> states;
+		auto& state = states[static_cast<std::uint8_t>(player.GetId())];
+		auto now = std::chrono::steady_clock::now();
+
+		if (now - state.m_LastLog < std::chrono::seconds(10))
+		{
+			++state.m_Skipped;
+			return;
+		}
+
+		state.m_LastLog = now;
+		LOGF(WARNING, "Blocked REMOVE_WEAPON_EVENT on our local ped from {} (weapon {:X}, {} more since the last line)", player.GetName(), weapon, state.m_Skipped);
+		state.m_Skipped = 0;
+	}
+
 	// logs a blocked sound (at most once a second per player) and returns true when they come in bursts
 	static bool IsBlockedSoundSpam(Player player, const CPlaySoundEvent& event)
 	{
@@ -651,7 +675,7 @@ namespace YimMenu::Hooks
 
 			if (Self::GetPed().GetNetworkObjectId() == ped_id)
 			{
-				LOGF(WARNING, "Blocked REMOVE_WEAPON_EVENT on our local ped from {} (weapon {:X})", player.GetName(), weapon);
+				LogBlockedWeaponRemoval(player, weapon);
 				Detections::Add(player, DetectionLevel::Weak, "removing our weapons");
 				return false;
 			}
