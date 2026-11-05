@@ -121,17 +121,49 @@ namespace YimMenu::Features
 		    || VEHICLE::GET_VEHICLE_PETROL_TANK_HEALTH(vehicle) < 1000.0f;
 	}
 
+	// the toggles last for one session. They aren't saved, because closing the game leaves the session without a pass to see it
+	class SessionToggle : public BoolCommand
+	{
+		using BoolCommand::BoolCommand;
+
+		bool ShouldSaveState() const override
+		{
+			return false;
+		}
+	};
+
 	// the same help as the per-player toggles, for everyone in the session except us
-	static BoolCommand _SemiGodmodeAll{"semigodmodeall", "Semi Godmode (All)", "Refills everyone's health and armor when they drop. A big hit can still kill them"};
-	static BoolCommand _AutoFixVehicleAll{"autofixvehicleall", "Auto Fix Vehicles (All)", "Repairs everyone's vehicle when it is damaged"};
-	static BoolCommand _NeverWantedAll{"neverwantedall", "Never Wanted (All)", "Clears everyone's wanted level when they get one"};
-	static BoolCommand _OffRadarAll{"offradarall", "Off The Radar (All)", "Keeps everyone off the radar. Some menus flag this as griefing"};
+	static SessionToggle _SemiGodmodeAll{"semigodmodeall", "Semi Godmode (All)", "Refills everyone's health and armor when they drop. A big hit can still kill them"};
+	static SessionToggle _AutoFixVehicleAll{"autofixvehicleall", "Auto Fix Vehicles (All)", "Repairs everyone's vehicle when it is damaged"};
+	static SessionToggle _NeverWantedAll{"neverwantedall", "Never Wanted (All)", "Clears everyone's wanted level when they get one"};
+	static SessionToggle _OffRadarAll{"offradarall", "Off The Radar (All)", "Keeps everyone off the radar. Some menus flag this as griefing"};
+
+	// the in session flag stays down for over half a second on every session change, so the 250 ms loop always sees it drop
+	static void TurnOffTogglesOnLeave()
+	{
+		static bool wasInSession = false;
+		const bool inSession = NETWORK::NETWORK_IS_IN_SESSION();
+		if (wasInSession && !inSession)
+		{
+			bool any = false;
+			for (auto toggle : {&_SemiGodmodeAll, &_AutoFixVehicleAll, &_NeverWantedAll, &_OffRadarAll})
+			{
+				any |= toggle->GetState();
+				toggle->SetState(false);
+			}
+			if (any)
+				LOG(INFO) << "Left the session: turned off the session-wide help toggles";
+		}
+		wasInSession = inSession;
+	}
 
 	// sends a reward only when it is needed, at most every 250 ms
 	void PlayerHelp::RunScript()
 	{
 		while (g_Running)
 		{
+			TurnOffTogglesOnLeave();
+
 			// one reward event can target several players, so a whole session needs at most one of each per pass
 			int healthBits = 0, armorBits = 0, fixBits = 0;
 			// script events go to one player at a time, so a whole session is spread over several passes
