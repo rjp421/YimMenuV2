@@ -1,6 +1,7 @@
 #include "core/hooking/DetourHook.hpp"
 #include "game/hooks/Hooks.hpp"
 #include "game/backend/Players.hpp"
+#include "game/features/players/help/PlayerHelp.hpp"
 #include "types/network/CNetGamePlayer.hpp"
 #include "core/commands/BoolCommand.hpp"
 #include "game/gta/Natives.hpp"
@@ -28,6 +29,8 @@ namespace YimMenu::Hooks
 				LOGF(WARNING, "Player {} changed their player index from {} to {}", player->GetName(), player->m_PlayerIndex, index);
 			BaseHook::Get<Info::AssignPhysicalIndex, DetourHook<decltype(&Info::AssignPhysicalIndex)>>()->Original()(mgr, player, index);
 			Players::OnPlayerJoin(player);
+			if (player->IsLocal())
+				Features::PlayerHelp::OnLocalPlayerJoin();
 			if (Features::_NotifyOnPlayerJoin.GetState() && !player->IsLocal())
 			{
 				std::string name = player->GetName();
