@@ -9,6 +9,8 @@
 #include "types/script/ScriptEvent.hpp"
 #include "types/script/globals/GPBD_FM_3.hpp"
 
+#include <atomic>
+
 namespace YimMenu::Features
 {
 	// legacy's ammo pickup rewards, without the vehicle and mission variants
@@ -138,21 +140,37 @@ namespace YimMenu::Features
 	static SessionToggle _NeverWantedAll{"neverwantedall", "Never Wanted (All)", "Clears everyone's wanted level when they get one"};
 	static SessionToggle _OffRadarAll{"offradarall", "Off The Radar (All)", "Keeps everyone off the radar. Some menus flag this as griefing"};
 
-	// the in session flag stays down for over half a second on a session change, but stays up when a job starts, which raises
-	// the in transition flag instead. Both last long enough for the 250 ms loop to see them change
+	static std::atomic<bool> g_LocalPlayerJoined = false;
+
+	void PlayerHelp::OnLocalPlayerJoin()
+	{
+		g_LocalPlayerJoined = true;
+	}
+
+	// a session change lowers the in session flag for over half a second, so the 250 ms loop sees it. Moving to or from a job
+	// leaves that flag up, but gives our player a slot in the new session. The in transition flag isn't used, because it also
+	// rises for a job we back out of, which never leaves the session
 	static void TurnOffTogglesOnLeave()
 	{
-		static bool wasInSession = false, wasInTransition = false;
 		const bool inSession = NETWORK::NETWORK_IS_IN_SESSION();
-		const bool inTransition = NETWORK::NETWORK_IS_IN_TRANSITION();
-		if ((wasInSession && !inSession) || (!wasInTransition && inTransition))
+		static bool wasInSession = false;
+		static bool hadSlot = inSession; // the menu can load in the middle of a session, which gives no join
+
+		bool left = wasInSession && !inSession;
+		if (g_LocalPlayerJoined.exchange(false))
 		{
-			for (auto toggle : {&_SemiGodmodeAll, &_AutoFixVehicleAll, &_NeverWantedAll, &_OffRadarAll})
-				if (toggle->GetState())
-					toggle->SetState(false);
+			left |= hadSlot;
+			hadSlot = true;
 		}
+		if (!inSession)
+			hadSlot = false;
 		wasInSession = inSession;
-		wasInTransition = inTransition;
+
+		if (!left)
+			return;
+		for (auto toggle : {&_SemiGodmodeAll, &_AutoFixVehicleAll, &_NeverWantedAll, &_OffRadarAll})
+			if (toggle->GetState())
+				toggle->SetState(false);
 	}
 
 	// sends a reward only when it is needed, at most every 250 ms

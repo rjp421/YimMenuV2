@@ -20,6 +20,9 @@ namespace YimMenu::Features
 
 		static int GetBits(const std::vector<Player>& players);
 
+		// the game gave our player a slot, as happens on entering any session. Safe to call from any thread
+		static void OnLocalPlayerJoin();
+
 		// runs the per-player toggles in PlayerData
 		static void RunScript();
 	};
