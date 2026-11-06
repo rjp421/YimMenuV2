@@ -8,7 +8,7 @@
 
 namespace YimMenu
 {
-	static BoolCommand _NetRecorder{"netrecorder", "Net Recorder", "Keeps recent network traffic in memory and saves it to the netlogs folder when an attack is blocked or the game crashes", true};
+	static BoolCommand _NetRecorder{"netrecorder", "Net Recorder", "Keeps recent network traffic in memory and saves it to the netlogs folder when an attack is blocked or the game crashes", false};
 
 	static constexpr std::size_t MAX_STORED_ARGS = 8;
 
