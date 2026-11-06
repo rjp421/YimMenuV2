@@ -62,8 +62,7 @@ Most of this is ported from [legacy YimMenu](https://github.com/Mr-X-GTA/YimMenu
 - **Game events:** sound and synced scene spam, rope and object control data, traffic manipulation, weapons removed from or given to us, and control requests for the vehicle we are driving. When another player's game reports them to the anticheat, they are marked as a modder.
 - **Script events:** legacy's script event protections with the same defaults (bounties, forced teleports and missions, sending to cutscenes, sound spam, vehicle kicks and more), plus the crash and kick events, argument checks and rate limits.
 - **Network messages:** kicks, session messages, message floods and forced takeovers of freemode's script host. The takeover is refused, and Reclaim Script Host takes it back, since this is how script host kicks start.
-
-Explosions are only logged for now: normal play produces many owned explosions at high rates, so a reliable rule is still being tested.
+- **Explosions** (work in progress): Block Injected Explosions (on by default) drops explosions that a mod menu made from inside a game script's thread, and counts them as a Strong detection. Turned off, they are only logged. Other explosions are only logged for now: normal play produces many owned explosions at high rates, so a reliable rule for them is still being tested.
 
 ### Settings > Protections
 
@@ -84,14 +83,14 @@ Every block adds points, by how sure it is that only a mod menu could send it:
 | Level | Points | Examples |
 |---|---|---|
 | Certain | 3 | crash, kick and session-breaking attacks |
-| Strong | 2 | godmode or invisible attackers, super jump |
+| Strong | 2 | godmode or invisible attackers, super jump, injected explosions |
 | Weak | 1 | bad entity data that isn't a known crash |
 
 A player is marked as a modder at 3 points. The same reason counts at most once every 10 seconds, and points are kept for the whole game session, so rejoining doesn't reset them. The kick and Block Join reactions only respond to Certain detections. The player list tooltip shows each player's detections, and Network > Saved Players lists the saved reasons of a marked player. Lua scripts can add their own with `player:add_detection()` and read them with `player:get_detections()`.
 
 ### Diagnostics (Debug > Misc)
 
-- **Net Recorder** (on by default) keeps recent network traffic in memory. It saves it to the `netlogs` folder when an attack is blocked, when the game crashes and when a session ends. Save Net Recorder saves it on demand.
+- **Net Recorder** (off by default) keeps recent network traffic in memory. It saves it to the `netlogs` folder when an attack is blocked, when the game crashes and when a session ends. Save Net Recorder saves it on demand.
 - **The bail monitor** logs what ends a session: the game bailing, warning screens, game scripts stopped by errors, and session events. Log Network Events (off by default) adds more network events to the log.
 
 ## Building
