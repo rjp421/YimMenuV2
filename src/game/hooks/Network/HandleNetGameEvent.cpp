@@ -22,6 +22,7 @@ namespace YimMenu::Hooks
 {
 	// legacy's "Block Traffic Manipulation" (same default)
 	static BoolCommand _BlockTrafficManipulation{"blocktrafficmanipulation", "Block Traffic Manipulation", "Blocks others from changing the traffic and pedestrians around you", true};
+	static BoolCommand _BlockInjectedExplosions{"blockinjectedexplosions", "Block Injected Explosions", "Rejects explosions that a mod menu made from inside a script's thread. When off, they are only logged", true};
 
 	static void SendEventAck(rage::netEventMgr* event_mgr, CNetGamePlayer* source_player, CNetGamePlayer* target_player, uint32_t event_index, uint32_t event_handled_bits)
 	{
@@ -145,58 +146,82 @@ namespace YimMenu::Hooks
 		}
 	}
 
-	// a script explosion carries the script and the program counter of the instruction that made it. If that instruction is
-	// a WAIT, or lies past the script's code, the script didn't make it: code injected into the script's thread did, which
-	// is how mod menus run their natives. Only scripts we have loaded can be checked. Log only, at most every 10 seconds per sender
-	static void CheckExplosionScript(CExplosionEvent& event, Player player)
+	static rage::scrProgram* FindLoadedScript(std::uint32_t hash)
 	{
-		if (!event.m_AddOwnedExplosion || !event.m_ScriptHash)
-			return;
-
-		rage::scrProgram* program = nullptr;
 		for (int i = 0; i < 176; i++)
 		{
 			auto candidate = Pointers.ScriptPrograms[i];
-			if (candidate && candidate->m_NameHash == event.m_ScriptHash && candidate->m_CodeSize && candidate->m_CodeBlocks)
-			{
-				program = candidate;
-				break;
-			}
+			if (candidate && candidate->m_NameHash == hash && candidate->m_CodeSize && candidate->m_CodeBlocks)
+				return candidate;
 		}
-		if (!program)
-			return;
+		return nullptr;
+	}
 
+	static bool IsAtWait(rage::scrProgram* program, std::uint32_t pc)
+	{
+		if (!program || pc >= program->m_CodeSize)
+			return false;
+
+		// NATIVE opcode: 0x2C, then (args << 2 | returns), then the program's native index in big endian
+		auto code = [program](std::uint32_t index) {
+			auto address = program->GetCodeAddress(index);
+			return address ? *address : std::uint8_t(0);
+		};
+		if (code(pc) != 0x2C)
+			return false;
+
+		std::uint32_t native = code(pc + 2) << 8 | code(pc + 3);
+		return native < program->m_NativeCount && program->m_NativeEntrypoints[native] == NativeInvoker::GetNativeHandler(NativeIndex::WAIT);
+	}
+
+	// a script explosion carries the script and the program counter of the instruction that made it. If that instruction is
+	// a WAIT, or lies past the script's code, the script didn't make it: code injected into the script's thread did, which
+	// is how mod menus run their natives. Menus also claim scripts we haven't loaded, which we can't read, but the program
+	// counter is still the one they really run at, so it is compared with the scripts they run in. Those have few WAITs, so
+	// a real script's explosion is very unlikely to land on one.
+	// Returns true if the explosion should be dropped
+	static bool IsInjectedExplosion(CExplosionEvent& event, Player player)
+	{
+		if (!event.m_AddOwnedExplosion || !event.m_ScriptHash)
+			return false;
+
+		auto pc = event.m_ProgramCounter;
+		auto program = FindLoadedScript(event.m_ScriptHash);
 		const char* reason = nullptr;
-		if (event.m_ProgramCounter >= program->m_CodeSize)
+		if (program)
 		{
-			reason = "past the script's code";
+			if (pc >= program->m_CodeSize)
+				reason = "past the script's code";
+			else if (IsAtWait(program, pc))
+				reason = "at a WAIT";
 		}
-		else
+		else if (IsAtWait(FindLoadedScript("freemode"_J), pc) || IsAtWait(FindLoadedScript("main_persistent"_J), pc))
 		{
-			// NATIVE opcode: 0x2C, then (args << 2 | returns), then the program's native index in big endian
-			auto pc = event.m_ProgramCounter;
-			auto code = [program](std::uint32_t index) {
-				auto address = program->GetCodeAddress(index);
-				return address ? *address : std::uint8_t(0);
-			};
-			if (code(pc) == 0x2C)
-			{
-				std::uint32_t native = code(pc + 2) << 8 | code(pc + 3);
-				if (native < program->m_NativeCount && program->m_NativeEntrypoints[native] == NativeInvoker::GetNativeHandler(NativeIndex::WAIT))
-					reason = "at a WAIT";
-			}
+			reason = "at a WAIT in freemode or main_persistent";
 		}
 		if (!reason)
-			return;
+			return false;
 
+		bool block = _BlockInjectedExplosions.GetState();
+
+		// a menu can send many of these per second, so log at most every 10 seconds per sender
 		static std::array<std::chrono::steady_clock::time_point, 256> last_logs{};
 		auto& last = last_logs[static_cast<std::uint8_t>(player.GetId())];
 		auto now = std::chrono::steady_clock::now();
 		if (now - last > std::chrono::seconds(10))
 		{
 			last = now;
-			LOGF(WARNING, "Explosion from {} wasn't made by the game's scripts (type {}, script {} pc 0x{:X} is {}; log only)", player.GetName(), static_cast<int>(event.m_ExplosionType), program->m_Name ? program->m_Name : "?", event.m_ProgramCounter, reason);
+			auto script = program && program->m_Name ? std::string(program->m_Name) : std::format("0x{:X}", event.m_ScriptHash);
+			LOGF(WARNING, "Explosion from {} wasn't made by the game's scripts (type {}, script {} pc 0x{:X} is {}; {})", player.GetName(), static_cast<int>(event.m_ExplosionType), script, pc, reason, block ? "blocked" : "log only");
 		}
+
+		if (!block)
+			return false;
+
+		// not serious evidence for the recorder: one player can keep this up for minutes, and a saved netlog every 30 seconds adds nothing
+		NetRecorder::DumpBlocked("blocked explosion", player, "injected explosion", false);
+		Detections::Add(player, DetectionLevel::Strong, "explosion not made by the game's scripts");
+		return true;
 	}
 
 	static bool ScanPlaySoundEvent(CPlaySoundEvent& event, Player player)
@@ -409,9 +434,8 @@ namespace YimMenu::Hooks
 			CExplosionEvent event;
 			event.Deserialize(buffer);
 			RecordExplosion(event, player);
-			CheckExplosionScript(event, player);
 
-			if (ScanExplosionEvent(event, player))
+			if (IsInjectedExplosion(event, player) || ScanExplosionEvent(event, player))
 			{
 				return false;
 			}
