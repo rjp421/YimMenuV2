@@ -59,6 +59,7 @@ Most of this is ported from [legacy YimMenu](https://github.com/Mr-X-GTA/YimMenu
 
 - **Entity data from other players** (spawns and updates), before the game applies it: crash models, invalid task and index values, attachment loops, remote teleports, model mismatches, and vehicle data that can crash the game. Known crashes are always blocked. The rest are blocked while Block Bad Sync Data is on, and only logged when it is off. Players can't delete or take over our own ped or a vehicle we control, or delete another player's player object.
 - **Cages:** Block Cages (on by default) refuses the cage, container and tube objects that menus spawn around a player to trap them. Only in freemode, since stunt races build their tracks from the same tubes. A player only gets detection points for a burst of different objects, because a single cage can pass to a new owner who did nothing wrong.
+- **Ped floods** (work in progress): Block Ped Spam (on by default) refuses peds from a player who sends more than 500 ped creates within 60 seconds, until the flood stops, and counts it as a Strong detection. A flood of peds fills a game pool and closes the game. Repeats are counted and the window is a minute, because over 10 seconds a flood looks like a normal player bringing many ambient peds into range. Jobs are skipped.
 - **Game events:** sound and synced scene spam, rope and object control data, traffic manipulation, weapons removed from or given to us, and control requests for the vehicle we are driving. When another player's game reports them to the anticheat, they are marked as a modder.
 - **Script events:** legacy's script event protections with the same defaults (bounties, forced teleports and missions, sending to cutscenes, sound spam, vehicle kicks and more), plus the crash and kick events, argument checks and rate limits.
 - **Network messages:** kicks, session messages, message floods and forced takeovers of freemode's script host. The takeover is refused, and Reclaim Script Host takes it back, since this is how script host kicks start.
@@ -83,7 +84,7 @@ Every block adds points, by how sure it is that only a mod menu could send it:
 | Level | Points | Examples |
 |---|---|---|
 | Certain | 3 | crash, kick and session-breaking attacks |
-| Strong | 2 | godmode or invisible attackers, super jump, injected explosions |
+| Strong | 2 | godmode or invisible attackers, super jump, injected explosions, ped floods |
 | Weak | 1 | bad entity data that isn't a known crash |
 
 A player is marked as a modder at 3 points. The same reason counts at most once every 10 seconds, and points are kept for the whole game session, so rejoining doesn't reset them. The kick and Block Join reactions only respond to Certain detections. The player list tooltip shows each player's detections, and Network > Saved Players lists the saved reasons of a marked player. Lua scripts can add their own with `player:add_detection()` and read them with `player:get_detections()`.
