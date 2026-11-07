@@ -96,7 +96,13 @@ namespace YimMenu
 		auto writeTime = std::filesystem::last_write_time(m_File, ec);
 		if (ec)
 			return;
-		auto time = std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>(writeTime));
+#ifdef _LIBCPP_VERSION
+		// libc++ (used by the cross-compile build) has no clock_cast, and MSVC's file_clock has no to_sys
+		auto sysTime = std::chrono::file_clock::to_sys(writeTime);
+#else
+		auto sysTime = std::chrono::clock_cast<std::chrono::system_clock>(writeTime);
+#endif
+		auto time = std::chrono::system_clock::to_time_t(std::chrono::time_point_cast<std::chrono::system_clock::duration>(sysTime));
 		std::tm local{};
 		localtime_s(&local, &time);
 		char stamp[32];
