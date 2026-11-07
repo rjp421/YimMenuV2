@@ -243,7 +243,7 @@ namespace YimMenu
 			}
 			case Kind::Blocked:
 			{
-				static constexpr const char* reasons[] = {"bad object type", "object type mismatch", "targets our ped", "targets our vehicle", "player object not owned by sender", "removal of a player object", "bad sync data", "bad sync data (not blocked, Block Bad Sync Data is off)"};
+				static constexpr const char* reasons[] = {"bad object type", "object type mismatch", "targets our ped", "targets our vehicle", "player object not owned by sender", "removal of a player object", "bad sync data", "bad sync data (not blocked, Block Bad Sync Data is off)", "ped spam"};
 				what = std::format("  BLOCKED object {}: {}", r.m_A, r.m_B < std::size(reasons) ? reasons[r.m_B] : "unknown");
 				break;
 			}

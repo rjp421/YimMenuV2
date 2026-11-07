@@ -33,6 +33,7 @@ namespace YimMenu::Submenus
 	    {"blockbadsyncdata"_J, true},
 	    {"blockcages"_J, true},
 	    {"blockinjectedexplosions"_J, true},
+	    {"blockpedspam"_J, true},
 	};
 
 	static void SetAll(std::optional<bool> state)

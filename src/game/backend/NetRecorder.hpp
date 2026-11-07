@@ -58,6 +58,7 @@ namespace YimMenu
 			PlayerObjectRemoval,
 			BadSyncData,
 			BadSyncDataNotBlocked,
+			PedSpam,
 		};
 
 		static void Record(Player sender, Kind kind, uint32_t a, uint32_t b = 0);
