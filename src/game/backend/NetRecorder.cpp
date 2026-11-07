@@ -30,6 +30,17 @@ namespace YimMenu
 	static std::mutex g_Mutex;
 	static constexpr std::size_t MAX_SESSION_NETLOGS = 30;
 
+	// local time through localtime_s, because libc++ (used by the cross-compile build) has no std::chrono::current_zone
+	static std::string LocalTime(std::int64_t ms, const char* format, bool with_ms)
+	{
+		auto seconds = static_cast<std::time_t>(ms / 1000);
+		std::tm local{};
+		localtime_s(&local, &seconds);
+		char text[32];
+		std::strftime(text, sizeof(text), format, &local);
+		return with_ms ? std::format("{}.{:03}", text, ms % 1000) : text;
+	}
+
 	static void Push(Player sender, NetRecorder::Kind kind, uint32_t a, uint32_t b, const std::int64_t* extra, std::size_t extra_count, bool own = false)
 	{
 		if (!_NetRecorder.GetState())
@@ -196,8 +207,8 @@ namespace YimMenu
 		}
 		dumping = true;
 
-		auto local_now = std::chrono::zoned_time{std::chrono::current_zone(), std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now())};
-		auto path = FileMgr::GetProjectFolder("./netlogs").Path() / std::format("netlog_{:%Y%m%d_%H%M%S}{}.txt", local_now, reason == "session ended" ? "_session" : "");
+		auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		auto path = FileMgr::GetProjectFolder("./netlogs").Path() / std::format("netlog_{}{}.txt", LocalTime(now_ms, "%Y%m%d_%H%M%S", false), reason == "session ended" ? "_session" : "");
 		std::ofstream file(path);
 		file << "reason: " << reason << "\n";
 		file << "time         pid name                 what\n";
@@ -206,7 +217,7 @@ namespace YimMenu
 		for (std::size_t i = 0; i < g_Count; i++)
 		{
 			const auto& r = g_Records[(start + i) % g_Records.size()];
-			auto time = std::chrono::zoned_time{std::chrono::current_zone(), std::chrono::sys_time<std::chrono::milliseconds>(std::chrono::milliseconds(r.m_Time))};
+			auto time = LocalTime(r.m_Time, "%H:%M:%S", true);
 
 			std::string what;
 			switch (r.m_Kind)
@@ -311,7 +322,7 @@ namespace YimMenu
 			}
 			}
 
-			file << std::format("{:%H:%M:%S}  {:>3} {:<20} {}\n", time, r.m_PlayerId, r.m_Name, what);
+			file << std::format("{}  {:>3} {:<20} {}\n", time, r.m_PlayerId, r.m_Name, what);
 		}
 
 		LOG(WARNING) << "Net recorder saved " << g_Count << " records to " << path.string() << " (" << reason << ")";
