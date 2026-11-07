@@ -1,18 +1,72 @@
+#include "core/commands/BoolCommand.hpp"
 #include "core/hooking/DetourHook.hpp"
 #include "game/backend/Detections.hpp"
 #include "game/backend/NetRecorder.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/Self.hpp"
 #include "game/backend/SyncProtections.hpp"
+#include "game/gta/Natives.hpp"
 #include "game/hooks/Hooks.hpp"
 #include "game/pointers/Pointers.hpp"
 #include "types/network/netObject.hpp"
+
+#include <deque>
 
 namespace YimMenu::Hooks
 {
 	using BlockReason = NetRecorder::BlockReason;
 
 	static constexpr std::uint16_t MAX_OBJECT_TYPE = static_cast<std::uint16_t>(rage::netObject::Type::MAX);
+
+	static BoolCommand _BlockPedSpam{"blockpedspam", "Block Ped Spam", "Refuses peds from a player who sends more than 500 ped creates within 60 seconds. A flood of peds closes the game", true};
+
+	// Menus crash players by flooding peds, re-creating the same ones over and over. Counted over a minute and
+	// with repeats included, because in 10 seconds a flood looks like a normal player bringing many ambient peds into
+	// range; over a minute normal players stay near 300 and a flood is far above
+	static constexpr std::size_t PED_SPAM_LIMIT = 500;
+	static constexpr auto PED_SPAM_WINDOW = std::chrono::seconds(60);
+	// a refused create is sent again, so this lasts while the flood goes on
+	static constexpr auto PED_SPAM_COOLDOWN = std::chrono::seconds(30);
+
+	// runs on the network thread only, like the other clone handlers
+	static bool IsPedSpam(Player sender, std::uint16_t object_type, std::uint16_t object_id)
+	{
+		if (object_type != static_cast<std::uint16_t>(rage::netObject::Type::PED) || !sender || sender.GetId() < 0 || sender.GetId() >= 32 || !_BlockPedSpam.GetState() || NETWORK::NETWORK_IS_ACTIVITY_SESSION())
+			return false;
+
+		struct SpamState
+		{
+			std::uint64_t m_Rid{}; // a slot can be reused by another player within the window
+			std::deque<std::chrono::steady_clock::time_point> m_Creates;
+			std::chrono::steady_clock::time_point m_RefuseUntil{};
+			std::chrono::steady_clock::time_point m_LastLog{};
+		};
+		static std::array<SpamState, 32> states;
+		auto& state = states[sender.GetId()];
+		if (auto rid = sender.GetRID(); state.m_Rid != rid)
+			state = SpamState{rid};
+
+		auto now = std::chrono::steady_clock::now();
+		while (!state.m_Creates.empty() && now - state.m_Creates.front() > PED_SPAM_WINDOW)
+			state.m_Creates.pop_front();
+		state.m_Creates.push_back(now);
+		if (state.m_Creates.size() > PED_SPAM_LIMIT)
+			state.m_RefuseUntil = now + PED_SPAM_COOLDOWN;
+
+		if (now >= state.m_RefuseUntil)
+			return false;
+
+		NetRecorder::Record(sender, NetRecorder::Kind::Blocked, object_id, static_cast<std::uint32_t>(BlockReason::PedSpam));
+		// log and count it at most once per 10 seconds per sender
+		if (now - state.m_LastLog > std::chrono::seconds(10))
+		{
+			state.m_LastLog = now;
+			LOGF(WARNING, "Blocked ped spam from {}: {} ped creates in 60 seconds (object {})", sender.GetName(), state.m_Creates.size(), object_id);
+			NetRecorder::DumpBlocked("ped spam", sender, "peds", true);
+			Detections::Add(sender, DetectionLevel::Strong, "spawning peds");
+		}
+		return true;
+	}
 
 	static const char* GetSenderName(Player player)
 	{
@@ -116,6 +170,9 @@ namespace YimMenu::Hooks
 			LogBlocked("create", sender, object_id, reason);
 			return;
 		}
+
+		if (IsPedSpam(sender, object_type, object_id))
+			return;
 
 		SyncProtections::SenderScope scope(sender);
 		BaseHook::Get<Network::HandleCloneCreate, DetourHook<decltype(&Network::HandleCloneCreate)>>()->Original()(mgr, source, target, object_type, object_id, object_flags, buffer, timestamp);
