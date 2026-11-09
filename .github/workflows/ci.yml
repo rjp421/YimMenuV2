@@ -68,7 +68,8 @@ jobs:
       - name: Rename DLL to libYimMenuV2-dev-{GITHUB_SHA}.dll
         run: |
           mv libYimMenuV2.dll libYimMenuV2-dev-${{github.sha}}.dll
-          mv libYimMenuV2.pdb libYimMenuV2-dev-${{github.sha}}.pdb
+          # Zig 0.17.1 on Linux doesn't write the pdb, so only rename it when it exists
+          if [ -f libYimMenuV2.pdb ]; then mv libYimMenuV2.pdb libYimMenuV2-dev-${{github.sha}}.pdb; fi
         working-directory: build/
 
       - name: Upload Artifact
