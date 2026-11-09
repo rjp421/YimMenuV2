@@ -15,13 +15,23 @@ namespace YimMenu::Submenus
 	// TODO: refactor this
 	static void Hotkeys()
 	{
+		// Before any DrawHotkey call: the row being edited sets it back to true
+		HotkeySystem::SetBeingModifed(false);
+
 		ImGui::BulletText("Hold the button with the command name and enter a keystroke to change its hotkey");
 		ImGui::BulletText("If a command has an existing hotkey, clicking the button will remove it");
 
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
-		
+
+		DrawHotkey(&g_HotkeySystem.m_MenuToggle, "Toggle Menu");
+		ImGui::TextDisabled("Ctrl + \\ also toggles the menu, whatever key is set above");
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
 		// this assumes we can't add new commands in runtime, but a lot of other subsystems assume that too
 		static std::map<std::string, CommandLink*> sortedCommands;
 		static bool commandsSorted = []() {
@@ -32,8 +42,6 @@ namespace YimMenu::Submenus
 			}
 			return true;
 		}();
-
-		HotkeySystem::SetBeingModifed(false);
 
 		for (auto& [name, link] : sortedCommands)
 		{

@@ -15,9 +15,31 @@
 
 namespace YimMenu
 {
+	// Saved next to the command hotkeys under a numeric key like theirs, so builds without this setting skip it
+	static constexpr auto MenuToggleId = "menutoggle"_J;
+
 	HotkeySystem::HotkeySystem() :
 	    IStateSerializer("hotkeys")
 	{
+		m_MenuToggle.m_Chain.push_back(VK_INSERT);
+	}
+
+	// Called with each key the game window sees released
+	bool HotkeySystem::IsMenuToggleRelease(int key)
+	{
+		const auto& chain = m_MenuToggle.m_Chain;
+		if (m_BeingModified || std::find(chain.begin(), chain.end(), key) == chain.end())
+			return false;
+
+		// A key that types a character must not close the menu while the user types into a text box
+		if (ImGui::GetCurrentContext() && GUI::IsUsingKeyboard() && MapVirtualKeyA(key, MAPVK_VK_TO_CHAR) != 0)
+			return false;
+
+		for (int other : chain)
+			if (other != key && !(GetKeyState(other) & 0x8000))
+				return false;
+
+		return true;
 	}
 
 	void HotkeySystem::RegisterCommands()
@@ -62,7 +84,33 @@ namespace YimMenu
 	std::string HotkeySystem::GetHotkeyLabel(int HotkeyModifier)
 	{
 		char KeyName[32];
-		GetKeyNameTextA(MapVirtualKey(HotkeyModifier, MAPVK_VK_TO_VSC) << 16, KeyName, 32);
+		LONG KeyParam = MapVirtualKey(HotkeyModifier, MAPVK_VK_TO_VSC) << 16;
+
+		// These keys share their scan codes with numpad keys; without the extended key flag, Insert is named "Num 0"
+		switch (HotkeyModifier)
+		{
+		case VK_INSERT:
+		case VK_DELETE:
+		case VK_HOME:
+		case VK_END:
+		case VK_PRIOR:
+		case VK_NEXT:
+		case VK_LEFT:
+		case VK_RIGHT:
+		case VK_UP:
+		case VK_DOWN:
+		case VK_DIVIDE:
+		case VK_NUMLOCK:
+		case VK_RCONTROL:
+		case VK_RMENU:
+		case VK_LWIN:
+		case VK_RWIN:
+		case VK_APPS:
+			KeyParam |= 1 << 24;
+			break;
+		}
+
+		GetKeyNameTextA(KeyParam, KeyName, 32);
 
 		if (std::string(KeyName).empty())
 			strcpy(KeyName, std::to_string(HotkeyModifier).data());
@@ -157,6 +205,9 @@ namespace YimMenu
 				state.erase(key);
 			}
 		}
+
+		// Saved even when empty, so a cleared toggle key doesn't come back as Insert on the next start
+		state[std::to_string(MenuToggleId)] = m_MenuToggle.m_Chain;
 	}
 
 	void HotkeySystem::LoadStateImpl(nlohmann::json& state)
@@ -165,6 +216,8 @@ namespace YimMenu
 		{
 			if (m_CommandHotkeys.contains(static_cast<uint32_t>(std::stoul(key.data()))))
 				m_CommandHotkeys[static_cast<uint32_t>(std::stoul(key.data()))].m_Chain = value.get<std::vector<int>>();
+			else if (static_cast<uint32_t>(std::stoul(key.data())) == MenuToggleId)
+				m_MenuToggle.m_Chain = value.get<std::vector<int>>();
 		}
 	}
 

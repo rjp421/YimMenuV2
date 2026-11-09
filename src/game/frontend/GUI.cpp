@@ -4,6 +4,7 @@
 #include "ESP.hpp"
 #include "Overlay.hpp"
 #include "core/backend/ScriptMgr.hpp"
+#include "core/commands/HotkeySystem.hpp"
 #include "core/renderer/Renderer.hpp"
 #include "core/scripting/LuaManager.hpp"
 #include "core/scripting/LuaScript.hpp"
@@ -89,8 +90,22 @@ namespace YimMenu
 
 	void GUI::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	{
-		if (msg == WM_KEYUP 
-			&& (wparam == VK_INSERT || (wparam == VK_OEM_5 && (GetKeyState(VK_CONTROL) & 0x8000) != 0)))
+		// Mouse buttons can be bound too, and they don't send WM_KEYUP
+		int releasedKey;
+		switch (msg)
+		{
+		case WM_KEYUP:
+		case WM_SYSKEYUP: releasedKey = static_cast<int>(wparam); break;
+		case WM_RBUTTONUP: releasedKey = VK_RBUTTON; break;
+		case WM_MBUTTONUP: releasedKey = VK_MBUTTON; break;
+		case WM_XBUTTONUP: releasedKey = GET_XBUTTON_WPARAM(wparam) == XBUTTON1 ? VK_XBUTTON1 : VK_XBUTTON2; break;
+		default: return;
+		}
+
+		// Ctrl + \ always toggles the menu, so a bad toggle key binding can't lock the user out
+		const bool fallbackKey = msg == WM_KEYUP && releasedKey == VK_OEM_5 && (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+
+		if (fallbackKey || g_HotkeySystem.IsMenuToggleRelease(releasedKey))
 		{
 			// Persist and restore the cursor position between menu instances
 			static POINT CursorCoords{};
