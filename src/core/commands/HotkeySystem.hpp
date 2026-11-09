@@ -22,7 +22,9 @@ namespace YimMenu
 		HotkeySystem();
 
 		std::map<uint32_t, CommandLink> m_CommandHotkeys;
+		CommandLink m_MenuToggle; // keys that open and close the menu, Insert by default
 		void RegisterCommands();
+		bool IsMenuToggleRelease(int key);
 		bool ListenAndApply(int& Hotkey, std::vector<int> blacklist = {0});
 		std::string GetHotkeyLabel(int hotkey_modifiers);
 		void CreateHotkey(std::vector<int>& Hotkey);
