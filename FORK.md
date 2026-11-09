@@ -49,6 +49,7 @@ Several of these bugs are in upstream too.
 | `fix/spectate-player-left` | Spectate stayed on after the spectated player left, so it started again on the next player selected. It now turns itself off. |
 | `fix/gui-settings-saved` | Settings > Customize lost most of its values on restart: layout, border and global values such as Global Alpha were saved but never applied, and font scale was never saved. All of them now come back at startup. |
 | `fix/hotkey-rebind` | In Settings > Hotkeys, the keys of the first hotkey you edited could not be bound to anything again until the game was restarted, even after clearing it (upstream has the same bug). |
+| `fix/ci-cross-pdb` | GitHub's CI cross-compile job (Linux) failed at its last step on every branch since November 2026: the current Zig compiler there builds the DLL but writes no `.pdb` file, which the step expected. Temporary, until upstream fixes it. |
 | `fix/delete-vehicle` | Players > Troll > Delete Vehicle did not remove the vehicle on the target's screen, because the network delete sent the wrong ownership token. It now deletes the vehicle for everyone, and warns when the player is not in a vehicle. |
 
 ## Protections and modder detection
