@@ -22,6 +22,7 @@ This is a fork of [YimMenuV2](https://github.com/YimMenu/YimMenuV2) for GTA V En
 | `feature/session-help` | Semi Godmode, Auto Fix Vehicles, Never Wanted and Off The Radar for everyone in the session except you. They turn off when you change sessions or move into or out of a job, and always start off | Network > Session > Misc |
 | `feature/teleport-into-vehicle` | Teleport Into Vehicle: puts you in the selected player's vehicle, in the driver's seat if it is free | Players > Info > Teleport |
 | `feature/tp-into-pv` | Teleport Into Personal Vehicle: puts you in your personal vehicle, in the driver's seat if it is free, otherwise a passenger seat. It can be bound to a key in Settings > Hotkeys | Vehicle > Main > Tools |
+| `feature/menu-toggle-key` | Toggle Menu: choose the key that opens and closes the menu (Insert by default; key combinations and mouse buttons work too). Ctrl + \ always works as well, so a bad choice can't lock you out. Hotkey names for Insert, Delete, Home, End, Page Up/Down and the arrows are shown correctly instead of as numpad keys | Settings > Hotkeys |
 | `feature/player-more-info` | More Info also shows language, CEO and MC names, wallet, bank, total money, rank, K/D, kills, deaths, other stats, NAT type and host token | Players > Info > More Info |
 | `feature/troll-options` | Ragdoll, Remove Weapons, Set Wanted, and vehicle options: Kick From Vehicle, Kill Engine, Burst Tires, Smash Windows, Stop, Boost, Launch, Flip 180, Open and Close Doors, Lock and Unlock. **Known issue:** Flip 180 snaps back to the way the vehicle was facing | Players > Troll |
 | `feature/log-backup` | The previous run's log is moved to `backup\cout_<date>_<time>.log` at startup instead of being overwritten, so the log of a crash survives the restart | |
@@ -47,6 +48,7 @@ Several of these bugs are in upstream too.
 | `fix/socialclub-2.4.0.296` | Social Club 2.4.0.296 broke two `socialclub.dll` signatures, so adding or joining a player by name stopped working and the limit of 100 players per Saved Players request fell back to 32. The new signatures match both 2.4.0.296 and the previous version (upstream has the same bug: [#1178](https://github.com/YimMenu/YimMenuV2/issues/1178)). |
 | `fix/spectate-player-left` | Spectate stayed on after the spectated player left, so it started again on the next player selected. It now turns itself off. |
 | `fix/gui-settings-saved` | Settings > Customize lost most of its values on restart: layout, border and global values such as Global Alpha were saved but never applied, and font scale was never saved. All of them now come back at startup. |
+| `fix/hotkey-rebind` | In Settings > Hotkeys, the keys of the first hotkey you edited could not be bound to anything again until the game was restarted, even after clearing it (upstream has the same bug). |
 | `fix/delete-vehicle` | Players > Troll > Delete Vehicle did not remove the vehicle on the target's screen, because the network delete sent the wrong ownership token. It now deletes the vehicle for everyone, and warns when the player is not in a vehicle. |
 
 ## Protections and modder detection
