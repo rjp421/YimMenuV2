@@ -58,7 +58,9 @@ namespace YimMenu
 
 	bool HotkeySystem::ListenAndApply(int& Hotkey, std::vector<int> Blacklist)
 	{
-		static auto IsKeyBlacklisted = [Blacklist](int Key) -> bool {
+		// Not static: a static lambda would keep the blacklist from the first call, so the keys of the first
+		// hotkey ever edited could never be bound again until restart
+		auto IsKeyBlacklisted = [&Blacklist](int Key) -> bool {
 			for (auto Key_ : Blacklist)
 				if (Key_ == Key)
 					return true;
